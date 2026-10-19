@@ -1,8 +1,9 @@
 import { store, save } from './store.js';
 import { setTopic } from './timer.js';
-import { stats, currentLevel } from './model.js';
+import { stats, currentLevel, tickerOf } from './model.js';
 import { PATHWAYS } from './curriculum.js';
 import { esc, uid, hours, shortDate } from './util.js';
+import { ask, confirmBox } from './dialog.js';
 
 const OPEN_KEY = '301hours:openTopics';
 const ROMAN = { 1: 'I', 2: 'II', 3: 'III' };
@@ -135,7 +136,7 @@ export function renderTopics(root, params) {
     draw();
   });
 
-  root.addEventListener('click', (e) => {
+  root.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
     const act = btn.dataset.act;
@@ -154,33 +155,39 @@ export function renderTopics(root, params) {
       location.hash = '#/study';
       return;
     }
+    // Ask first, then look the topic/module up again: a sync may have replaced
+    // the data while the dialog was open.
+    const topicId = topic.id;
+    const itemId = item?.id;
+    const fresh = () => {
+      const t = findTopic(topicId);
+      return { t, i: itemId ? t?.items.find((x) => x.id === itemId) : null };
+    };
+    let apply;
     if (act === 'rename-item' || act === 'rename-topic') {
-      const target = item || topic;
-      const name = prompt('New name', target.name)?.trim();
+      const name = (await ask(item ? 'RENAME MODULE' : 'RENAME TOPIC', { value: (item || topic).name }))?.trim();
       if (!name) return;
-      target.name = name;
-      touch(target);
+      apply = ({ t, i }) => { (i || t).name = name; touch(i || t); };
     } else if (act === 'ticker-topic') {
-      const t = prompt('Ticker (up to 5 letters)', topic.ticker || '')?.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
-      if (!t) return;
-      topic.ticker = t;
-      touch(topic);
+      const tk = (await ask(`SET TICKER · ${topic.name.toUpperCase()}`, { value: tickerOf(topic), hint: 'Up to 5 letters or digits, e.g. FI or QM.', maxLength: 5 }))?.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+      if (!tk) return;
+      apply = ({ t }) => { t.ticker = tk; touch(t); };
     } else if (act === 'weight-topic') {
-      const w = prompt('Exam weight (e.g. 10–15%)', topic.weight || '');
+      const w = await ask(`EXAM WEIGHT · ${topic.name.toUpperCase()}`, { value: topic.weight || '', hint: 'Shown next to the topic, e.g. 10–15%.', placeholder: '10–15%' });
       if (w === null) return;
-      topic.weight = w.trim();
-      touch(topic);
+      apply = ({ t }) => { t.weight = w.trim(); touch(t); };
     } else if (act === 'delete-item') {
-      if (!confirm(`Delete "${item.name}"?`)) return;
-      item.deleted = true;
-      touch(item);
+      if (!(await confirmBox('DELETE MODULE', `Delete "${item.name}"? Hours already logged are kept.`, { okLabel: 'DELETE', danger: true }))) return;
+      apply = ({ i }) => { i.deleted = true; touch(i); };
     } else if (act === 'delete-topic') {
-      if (!confirm(`Delist "${topic.name}" and its modules? Hours already logged are kept.`)) return;
-      topic.deleted = true;
-      touch(topic);
+      if (!(await confirmBox('DELIST TOPIC', `Delist "${topic.name}" and all its modules? Hours already logged are kept.`, { okLabel: 'DELIST', danger: true }))) return;
+      apply = ({ t }) => { t.deleted = true; touch(t); };
     } else {
       return;
     }
+    const target = fresh();
+    if (!target.t || (itemId && !target.i)) return;
+    apply(target);
     save();
     draw();
   });

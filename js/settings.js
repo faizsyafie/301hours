@@ -2,6 +2,7 @@ import { store, save, sync, subscribe, setPasscode, getPasscode } from './store.
 import { mergeDocs } from '../lib/merge.js';
 import { $, esc, dayKey } from './util.js';
 import { PATHWAYS } from './curriculum.js';
+import { notice } from './dialog.js';
 
 const FIELDS = [
   ['goalHours', 'TARGET HOURS (PER LEVEL)', 'number', { min: 1, max: 2000 }],
@@ -126,9 +127,9 @@ export function renderSettings(root) {
       if (!Array.isArray(doc.topics) || !Array.isArray(doc.sessions)) throw new Error('Not a 301hours backup');
       store.doc = mergeDocs(store.doc, doc);
       save({ immediate: true });
-      alert('Backup loaded.');
+      await notice('BACKUP LOADED', 'Your backup was merged with the data already here.');
     } catch (err) {
-      alert(`Couldn't load that file: ${err.message}`);
+      await notice('LOAD FAILED', `Couldn't load that file: ${err.message}`);
     }
   });
 
