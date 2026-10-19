@@ -451,5 +451,19 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .mat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mat-act { grid-column: 2 / -1; display: flex; gap: 6px; }
 .row-2b { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
-.heat-slot:empty { display: none; }
-.row-2b:has(.heat-slot:empty) { grid-template-columns: 1fr; }
+
+/* ---------- Heatmap ---------- */
+.heat { position: relative; aspect-ratio: 2 / 1; min-height: 220px; }
+.tile-h {
+  position: absolute; box-sizing: border-box; border: 2px solid var(--panel); padding: 6px 8px; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; color: #fff; cursor: default;
+  background: color-mix(in srgb, var(--tone) calc(var(--k) * 100%), var(--panel-2));
+}
+.tile-h.up { --tone: var(--green); }
+.tile-h.down { --tone: var(--red); }
+.tile-h.flat { --tone: var(--line-2); background: var(--panel-2); color: var(--dim); }
+.tile-h:hover { outline: 1px solid var(--text); z-index: 1; }
+.th-tk { font-weight: 700; font-size: 0.85rem; letter-spacing: 0.04em; }
+.th-h { font-size: 0.78rem; opacity: 0.9; }
+.th-d { font-size: 0.72rem; font-weight: 600; }
+@media (max-width: 640px) { .heat { aspect-ratio: 1 / 1; } }

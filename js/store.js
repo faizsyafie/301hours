@@ -156,5 +156,12 @@ setInterval(() => { if (store.dirty && store.status === 'offline') sync(); }, 30
 window.addEventListener('online', () => { if (store.status === 'offline') sync(); });
 // Pick up changes from other devices when returning to the tab.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && (store.status === 'synced' || store.status === 'offline')) sync();
+  const syncable = store.status === 'synced' || store.status === 'offline' || store.status === 'syncing';
+  if (!syncable) return;
+  // Back to the tab: fetch other devices' changes. Leaving it: push ours now
+  // instead of waiting for the debounce (the tab may be about to close).
+  if (document.visibilityState === 'visible' || store.dirty) {
+    clearTimeout(timer);
+    sync();
+  }
 });

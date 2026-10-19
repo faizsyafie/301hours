@@ -4,6 +4,7 @@ import { MILESTONES } from './curriculum.js';
 import { analystRatings, topPick, ratingMinHours } from './ratings.js';
 import { setTopic } from './timer.js';
 import { schedule, act as reviewAct } from './reviews.js';
+import { heatmapPanel } from './heatmap.js';
 import { esc, hours, duration, dayKey, startOfDay, shortDate, timeOfDay } from './util.js';
 
 const CHART_DAYS = 30;
@@ -287,7 +288,7 @@ export function renderDashboard(root) {
       ${tape(st)}
     </div>
     <div class="row-2 row-2b">
-      <div class="heat-slot"></div>
+      ${heatmapPanel(st.topics)}
       ${maturing()}
     </div>
     ${watchlist(st)}`;
