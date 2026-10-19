@@ -51,6 +51,7 @@ const SOUNDS = {
     tone(2093, 0.09, 0.9, { gain: 0.16, decay: 0.9 });
     tone(2637, 0.16, 1.1, { gain: 0.14, decay: 1.1 });
   },
+  tick() { tone(1320, 0, 0.12, { type: 'square', gain: 0.05, decay: 0.1 }); tone(1320, 0.18, 0.12, { type: 'square', gain: 0.05, decay: 0.1 }); },
   close() { tone(660, 0, 0.5, { type: 'triangle', gain: 0.15 }); tone(440, 0.22, 0.8, { type: 'triangle', gain: 0.15 }); },
   breaking() {
     [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.12, 0.5, { type: 'square', gain: 0.06, decay: 0.45 }));

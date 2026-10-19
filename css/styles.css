@@ -286,6 +286,32 @@ table.watch, table.tape { width: 100%; border-collapse: collapse; font-size: 0.8
 .add-item input, .add-topic input { flex: 1; }
 .topic-actions { padding: 10px 14px 14px; }
 
+/* ---------- Alerts ---------- */
+.toasts { position: fixed; top: 92px; right: max(16px, calc((100vw - 1240px) / 2)); z-index: 40; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100vw - 32px)); pointer-events: none; }
+.toast {
+  --k: var(--amber);
+  pointer-events: auto; position: relative; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--line-2); border-left: 3px solid var(--k);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55); padding: 10px 12px 12px;
+  animation: toast-in 0.18s ease-out;
+}
+.toast[data-kind="study"] { --k: var(--green); }
+.toast[data-kind="break"] { --k: var(--cyan); }
+.toast[data-kind="warn"] { --k: var(--amber); }
+.toast.out { opacity: 0; transform: translateX(12px); transition: all 0.2s; }
+.toast-head { display: flex; align-items: center; gap: 8px; }
+.toast-title { flex: 1; color: var(--k); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.06em; }
+.toast-time { color: var(--muted); font-size: 0.72rem; }
+.toast-x { font: inherit; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0 2px; }
+.toast-x:hover { color: var(--text); }
+.toast-body { color: var(--dim); font-size: 0.82rem; margin-top: 4px; line-height: 1.5; }
+.toast-bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--k); transform-origin: left; animation: toast-count linear forwards; }
+.toast:hover .toast-bar { animation-play-state: paused; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes toast-count { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (max-width: 640px) { .toasts { top: auto; bottom: 16px; right: 16px; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
 /* ---------- Dialog ---------- */
 dialog { border: 1px solid var(--amber); background: var(--panel); color: var(--text); padding: 18px; width: min(420px, calc(100vw - 32px)); }
 dialog::backdrop { background: rgba(0, 0, 0, 0.7); }

@@ -18,6 +18,8 @@ const FIELDS = [
 const TOGGLES = [
   ['presence', 'Only count study time while I\'m at the desk (camera)'],
   ['autoStartBreak', 'Start breaks automatically'],
+  ['autoStartStudy', 'Start study blocks automatically after breaks'],
+  ['alerts', 'Show alerts when blocks and breaks start or end'],
   ['sound', 'Play a sound when a block or break ends'],
 ];
 

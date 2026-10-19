@@ -289,6 +289,8 @@ export const DEFAULT_SETTINGS = {
   graceSec: 6,
   presence: true,
   autoStartBreak: true,
+  autoStartStudy: true,
+  alerts: true,
   sound: true,
   celebrated: [],
 };

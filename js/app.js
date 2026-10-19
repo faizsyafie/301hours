@@ -1,5 +1,6 @@
 import { store, load, subscribe, sync, save, setPasscode } from './store.js';
-import { timer, onTimer, remainingSec, setTopic } from './timer.js';
+import { timer, onTimer, onAlert, remainingSec, setTopic } from './timer.js';
+import { toast } from './toast.js';
 import { renderDashboard, tickerItems, milestonesFor, symbol } from './dashboard.js';
 import { renderStudy } from './study.js';
 import { renderTopics } from './topics.js';
@@ -189,6 +190,7 @@ subscribe(() => {
 });
 
 onTimer(updateMiniTimer);
+onAlert(toast);
 window.addEventListener('hashchange', route);
 
 const tick = () => { $('.clock').textContent = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }); };

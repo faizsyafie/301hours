@@ -1,7 +1,7 @@
 // Pomodoro state machine. Study blocks only advance while you're at the desk
 // (when the presence check is on); breaks run on the wall clock.
 import { store, save } from './store.js';
-import { isPresent, onPresence } from './presence.js';
+import { isPresent, onPresence, presence, startCamera } from './presence.js';
 import { uid } from './util.js';
 import { play } from './sounds.js';
 
@@ -10,8 +10,11 @@ const TICK_MS = 250;
 const MAX_STEP_MS = 65000;
 // Sessions shorter than this are discarded.
 const MIN_SESSION_SEC = 10;
+// Heads-up this many seconds before a block or break ends (phases of 2+ min).
+const WARN_SEC = 60;
 
 const listeners = new Set();
+const alertListeners = new Set();
 
 export const timer = {
   phase: 'study',      // 'study' | 'short' | 'long'
@@ -28,6 +31,21 @@ export const timer = {
 
 let lastTick = 0;
 let lastFlush = 0;
+let warned = false;
+
+// Phase-change alerts: { kind: 'study' | 'break' | 'warn', title, body }.
+export function onAlert(fn) {
+  alertListeners.add(fn);
+  return () => alertListeners.delete(fn);
+}
+
+function announce(kind, title, body, sound) {
+  if (sound) chime(sound);
+  if (settings().alerts !== false) for (const fn of alertListeners) fn({ kind, title, body });
+  notify(title.replace(/^[^A-Z0-9]+/, ''), body);
+}
+
+const breakName = (phase) => (phase === 'long' ? 'long break' : 'short break');
 
 export function onTimer(fn) {
   listeners.add(fn);
@@ -115,6 +133,19 @@ function tick() {
     timer.elapsedMs += step;
   }
 
+  const left = phaseLengthSec() - timer.elapsedMs / 1000;
+  if (!warned && phaseLengthSec() >= 2 * WARN_SEC && left <= WARN_SEC && left > 0) {
+    warned = true;
+    if (timer.phase === 'study') {
+      const next = (timer.completed + 1) % settings().longEvery === 0 ? 'long' : 'short';
+      announce('warn', '▲ 1 MIN LEFT IN THIS BLOCK', `Wrap up your current point. A ${breakName(next)} comes next.`, 'tick');
+    } else {
+      announce('warn', '▲ BREAK ENDS IN 1 MIN', settings().autoStartStudy !== false
+        ? 'The next study block starts by itself. Head back to the desk.'
+        : 'Head back to the desk and open the market when ready.', 'tick');
+    }
+  }
+
   if (timer.elapsedMs >= phaseLengthSec() * 1000) finishPhase();
   emit();
 }
@@ -137,21 +168,33 @@ function enterPhase(phase, autoStart) {
   timer.awayMs = 0;
   timer.running = autoStart;
   timer.counting = false;
+  warned = false;
   lastTick = Date.now();
 }
 
 function finishPhase() {
+  const st = settings();
   if (timer.phase === 'study') {
     flushSession(true);
     timer.completed += 1;
-    const long = timer.completed % settings().longEvery === 0;
-    enterPhase(long ? 'long' : 'short', settings().autoStartBreak);
-    chime('register');
-    notify('Block banked', long ? 'Market closed. Long break.' : 'Market closed. Short break.');
+    const next = timer.completed % st.longEvery === 0 ? 'long' : 'short';
+    const auto = st.autoStartBreak !== false;
+    enterPhase(next, auto);
+    const mins = next === 'long' ? st.longMin : st.shortMin;
+    announce('break', `◆ MARKET CLOSED · BLOCK ${timer.completed} BANKED`, auto
+      ? `Your ${mins}-min ${breakName(next)} starts now. Stand up, stretch, look away from the screen.`
+      : `Your ${mins}-min ${breakName(next)} is ready. Press SPACE to start it.`, 'register');
   } else {
-    enterPhase('study', false);
-    chime('close');
-    notify('Break over', 'Pre-market. Open when you\'re back at the desk.');
+    const auto = st.autoStartStudy !== false;
+    enterPhase('study', auto);
+    if (auto) {
+      if (st.presence && presence.state !== 'ready' && presence.state !== 'loading') startCamera();
+      announce('study', '● MARKET OPEN · STUDY BLOCK STARTS', st.presence
+        ? `Your ${st.studyMin}-min block starts now. The clock runs as soon as you're back in frame.`
+        : `Your ${st.studyMin}-min block starts now.`, 'open');
+    } else {
+      announce('study', '○ BREAK OVER · PRE-MARKET', 'Press SPACE or OPEN MARKET when you\'re back at the desk.', 'close');
+    }
   }
 }
 
