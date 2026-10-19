@@ -3,6 +3,7 @@ import { stats, hourStamps, examCountdown, currentLevel, tickerOf, levelScores, 
 import { MILESTONES } from './curriculum.js';
 import { analystRatings, topPick, ratingMinHours, creditRating } from './ratings.js';
 import { panel } from './dialog.js';
+import { showReport, weekReport } from './report.js';
 import { setTopic } from './timer.js';
 import { schedule, act as reviewAct } from './reviews.js';
 import { heatmapPanel } from './heatmap.js';
@@ -77,6 +78,7 @@ function quote(st) {
       </div>
       <div class="quote-side">
         <a class="btn primary big" href="#/study">OPEN MARKET ▸</a>
+        <button type="button" class="btn small" data-10k>▤ WEEKLY 10-K</button>
         ${pickLine(st)}
       </div>
       <div class="qstrip">
@@ -333,6 +335,7 @@ export function renderDashboard(root) {
   }));
 
   root.querySelector('[data-credit]')?.addEventListener('click', showCredit);
+  root.querySelector('[data-10k]')?.addEventListener('click', () => showReport(weekReport(-1).sec > 0 ? -1 : 0));
   root.querySelector('[data-pick]')?.addEventListener('click', (e) => setTopic(e.currentTarget.dataset.pick, ''));
 
   return () => ro.disconnect();

@@ -54,9 +54,9 @@ export function schedule() {
 }
 
 // Reviews done since a timestamp (for the weekly report).
-export function reviewsSince(since) {
+export function reviewsBetween(from, to = Infinity) {
   let n = 0;
-  for (const t of levelTopics()) for (const item of t.items) for (const ts of item.rev?.log || []) if (ts >= since) n++;
+  for (const t of levelTopics()) for (const item of t.items) for (const ts of item.rev?.log || []) if (ts >= from && ts < to) n++;
   return n;
 }
 

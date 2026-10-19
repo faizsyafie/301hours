@@ -482,3 +482,17 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .cr-track { height: 6px; background: var(--sq-off); }
 .cr-track > div { height: 100%; background: var(--amber); }
 .cr-scale { margin-top: 12px; }
+
+/* ---------- Weekly 10-K ---------- */
+.toast-act { margin-top: 8px; }
+.tenk-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.tenk-form { font-weight: 700; font-size: 1.2rem; color: var(--amber); letter-spacing: 0.04em; }
+.tenk-tabs { display: flex; gap: 6px; }
+.tenk-hero { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px; }
+.tenk-h { font-size: 3rem; font-weight: 700; color: var(--amber); line-height: 1; }
+.tenk-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 90px; margin: 14px 0; align-items: end; }
+.tk-day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; font-size: 0.7rem; color: var(--muted); }
+.tk-bar { width: 100%; background: var(--amber); min-height: 2px; }
+.tenk .kv-grid { border-top: 1px solid var(--line); padding-top: 12px; margin-bottom: 12px; }
+.tenk-seg { border-top: 1px solid var(--line); padding: 10px 0; font-size: 0.85rem; display: flex; flex-direction: column; gap: 4px; }
+.tenk-seg .k { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em; }

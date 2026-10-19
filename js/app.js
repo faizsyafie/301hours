@@ -8,6 +8,7 @@ import { renderSettings } from './settings.js';
 import { renderScores } from './scores.js';
 import { stats, currentLevel } from './model.js';
 import { creditRating, gradeRank, weakest } from './ratings.js';
+import { announceWeekly } from './report.js';
 import { play } from './sounds.js';
 import { showAbout } from './about.js';
 import './install.js';
@@ -99,7 +100,8 @@ function checkMilestones() {
 }
 
 // ---------- Credit rating changes ----------
-let dataReady = false; // true once the first sync attempt has finished
+let dataReady = false;
+let announced = false; // true once the first sync attempt has finished
 function checkCredit() {
   if (!dataReady) return;
   const s = store.doc.settings;
@@ -214,6 +216,7 @@ subscribe(() => {
   updateTape();
   checkMilestones();
   checkCredit();
+  if (dataReady && !announced) { announced = true; announceWeekly(); }
 });
 
 onTimer(updateMiniTimer);

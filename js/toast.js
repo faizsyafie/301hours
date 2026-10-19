@@ -15,7 +15,7 @@ function container() {
 }
 
 // kind: 'study' | 'break' | 'warn' | 'info'
-export function toast({ kind = 'info', title, body = '', timeout = 9000 }) {
+export function toast({ kind = 'info', title, body = '', timeout = 9000, action = null }) {
   const el = document.createElement('div');
   el.className = 'toast';
   el.dataset.kind = kind;
@@ -23,6 +23,7 @@ export function toast({ kind = 'info', title, body = '', timeout = 9000 }) {
   el.innerHTML = `
     <div class="toast-head"><span class="toast-title">${esc(title)}</span><span class="toast-time">${new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}</span><button type="button" class="toast-x" aria-label="Dismiss">✕</button></div>
     ${body ? `<div class="toast-body">${esc(body)}</div>` : ''}
+    ${action ? `<div class="toast-act"><button type="button" class="btn small">${esc(action.label)}</button></div>` : ''}
     <div class="toast-bar" style="animation-duration:${timeout}ms"></div>`;
   const c = container();
   c.prepend(el);
@@ -33,6 +34,7 @@ export function toast({ kind = 'info', title, body = '', timeout = 9000 }) {
     setTimeout(() => el.remove(), 200);
   };
   el.querySelector('.toast-x').addEventListener('click', close);
+  el.querySelector('.toast-act button')?.addEventListener('click', () => { close(); action.onClick(); });
   // The bar's animation is the countdown; hovering pauses both.
   el.querySelector('.toast-bar').addEventListener('animationend', close);
 }
