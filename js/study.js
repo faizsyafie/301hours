@@ -1,6 +1,7 @@
 import { store, save, subscribe } from './store.js';
 import { timer, onTimer, toggle, skip, restart, switchTo, setTopic, phaseLengthSec, remainingSec } from './timer.js';
 import { openMini, miniMode } from './pip.js';
+import { ambient, MODES, setMode, setVolume, preview } from './ambient.js';
 import { presence, onPresence, startCamera, stopCamera, isPresent, video } from './presence.js';
 import { levelTopics, currentLevel, sessionLevel, tickerOf, stats } from './model.js';
 import { analystRatings, topPick } from './ratings.js';
@@ -92,6 +93,15 @@ export function renderStudy(root) {
         </section>
 
         <section class="panel">
+          <div class="phead"><span>FOCUS SOUND</span><span class="muted">PLAYS DURING STUDY BLOCKS · MUTES ON BREAKS</span></div>
+          <div class="row ambient-row">
+            <select name="ambient">${Object.entries(MODES).map(([k, v]) => `<option value="${k}" ${k === ambient.mode ? 'selected' : ''}>${v}</option>`).join('')}</select>
+            <label class="vol">VOL <input type="range" name="ambVol" min="0" max="100" value="${ambient.volume}"></label>
+            <button type="button" class="btn small" data-act="preview">▶ PREVIEW</button>
+          </div>
+        </section>
+
+        <section class="panel">
           <details class="manual">
             <summary class="phead"><span>OFF-DESK ENTRY</span><span class="muted">LOG TIME MANUALLY ▾</span></summary>
             <p class="note">For study away from the camera, like the commute. It's flagged MAN on the tape.</p>
@@ -154,6 +164,9 @@ export function renderStudy(root) {
     if (e.target.checked && timer.running && timer.phase === 'study') startCamera();
     update();
   });
+  $('[name="ambient"]', root).addEventListener('change', (e) => { setMode(e.target.value); preview(); });
+  $('[name="ambVol"]', root).addEventListener('input', (e) => setVolume(e.target.value));
+  $('[data-act="preview"]', root).addEventListener('click', preview);
   $('[name="hidePreview"]', root).addEventListener('change', (e) => {
     try { localStorage.setItem(PREVIEW_KEY, e.target.checked ? '1' : '0'); } catch { /* ignore */ }
     update();

@@ -496,3 +496,8 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .tenk .kv-grid { border-top: 1px solid var(--line); padding-top: 12px; margin-bottom: 12px; }
 .tenk-seg { border-top: 1px solid var(--line); padding: 10px 0; font-size: 0.85rem; display: flex; flex-direction: column; gap: 4px; }
 .tenk-seg .k { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em; }
+
+/* ---------- Focus sounds ---------- */
+.ambient-row select { flex: 1; min-width: 150px; }
+.vol { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.06em; }
+.vol input { accent-color: var(--amber); width: 120px; }
