@@ -3,6 +3,7 @@ import { stats, hourStamps, examCountdown, currentLevel, tickerOf, levelScores, 
 import { MILESTONES } from './curriculum.js';
 import { analystRatings, topPick, ratingMinHours } from './ratings.js';
 import { setTopic } from './timer.js';
+import { schedule, act as reviewAct } from './reviews.js';
 import { esc, hours, duration, dayKey, startOfDay, shortDate, timeOfDay } from './util.js';
 
 const CHART_DAYS = 30;
@@ -234,6 +235,26 @@ function watchlist(st) {
     </section>`;
 }
 
+function maturing() {
+  const { due, upcoming } = schedule();
+  const row = (r, isDue) => `
+    <li class="${isDue ? 'due' : ''}">
+      <span class="tk">${esc(r.ticker)}</span>
+      <span class="mat-name">${esc(r.item.name)}</span>
+      <span class="rev ${isDue ? 'due' : ''}">${r.stage} ${isDue ? 'DUE' : shortDate(r.rev.due).toUpperCase()}</span>
+      ${isDue ? `<span class="mat-act"><button type="button" class="btn small" data-rev="reviewed|${esc(r.topic.id)}|${esc(r.item.id)}" title="Mark as reviewed">✓ REVIEWED</button><button type="button" class="btn small" data-rev="snooze|${esc(r.topic.id)}|${esc(r.item.id)}" title="Remind me tomorrow">SNOOZE</button></span>` : ''}
+    </li>`;
+  const body = due.length || upcoming.length
+    ? `<ul class="mat">${due.slice(0, 8).map((r) => row(r, true)).join('')}${upcoming.slice(0, Math.max(0, 6 - due.length)).map((r) => row(r, false)).join('')}</ul>
+       ${due.length > 8 ? `<p class="note">+ ${due.length - 8} more due. <a href="#/topics">See all in Topics</a></p>` : ''}`
+    : '<p class="note">Nothing to review yet. Tick modules off in Topics; each comes back here for review after 1, 7 and 30 days, so early topics don\'t fade by exam day.</p>';
+  return `
+    <section class="panel">
+      <div class="phead"><span>MATURING · REVIEWS</span><span class="muted">${due.length} DUE TODAY · ${upcoming.length} THIS WEEK</span></div>
+      ${body}
+    </section>`;
+}
+
 function tape(st) {
   const topics = new Map(store.doc.topics.map((t) => [t.id, t]));
   const recent = st.sessions.slice().sort((a, b) => b.start - a.start).slice(0, 10);
@@ -265,6 +286,10 @@ export function renderDashboard(root) {
       </section>
       ${tape(st)}
     </div>
+    <div class="row-2 row-2b">
+      <div class="heat-slot"></div>
+      ${maturing()}
+    </div>
     ${watchlist(st)}`;
 
   const chart = root.querySelector('.chart');
@@ -282,6 +307,11 @@ export function renderDashboard(root) {
     tr.addEventListener('click', go);
     tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
   });
+
+  root.querySelectorAll('[data-rev]').forEach((btn) => btn.addEventListener('click', () => {
+    const [kind, topicId, itemId] = btn.dataset.rev.split('|');
+    reviewAct(kind, topicId, itemId); // saving re-renders the dashboard
+  }));
 
   root.querySelector('[data-pick]')?.addEventListener('click', (e) => setTopic(e.currentTarget.dataset.pick, ''));
 

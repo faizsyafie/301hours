@@ -438,3 +438,18 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
 .mock-chart .mdot.miss { fill: var(--red); }
 .reports .note-cell { white-space: normal; min-width: 120px; }
 .score-form .preview { margin: 0; }
+
+/* ---------- Revision schedule ---------- */
+.rev { font: inherit; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); border: 1px solid var(--line-2); background: transparent; padding: 0 6px; white-space: nowrap; }
+.rev.due { color: var(--amber); border-color: var(--amber); }
+button.rev.due { cursor: pointer; }
+button.rev.due:hover { background: var(--amber); color: var(--bg); }
+.rev.matured { color: var(--green); border-color: var(--green); }
+.mat { list-style: none; margin: 0; padding: 0; }
+.mat li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 0.85rem; }
+.mat li:not(.due) { color: var(--dim); }
+.mat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mat-act { grid-column: 2 / -1; display: flex; gap: 6px; }
+.row-2b { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+.heat-slot:empty { display: none; }
+.row-2b:has(.heat-slot:empty) { grid-template-columns: 1fr; }
