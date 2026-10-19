@@ -29,6 +29,12 @@ Tips:
 4. **Redeploy** (*Deployments → ⋯ → Redeploy*) so the new variables are picked up.
 5. Open the site and enter your passcode once on each device.
 
+### If sync says LOCKED or OFFLINE
+
+- **LOCKED, wrong passcode:** what you type must match `APP_PASSCODE` (case-sensitive). Spaces and quotes around either are ignored. If you changed the variable, redeploy, because variables only reach new deployments.
+- **OFFLINE, Deployment Protection:** Vercel's own login is in front of the API on that URL. Use the main `<project>.vercel.app` domain, or turn off *Vercel Authentication* under *Settings → Deployment Protection*.
+- **LOCAL, no database / APP_PASSCODE not set:** finish steps 2–4 above, making sure the variables are enabled for the Production environment.
+
 Without steps 2–3 the site still works, but data stays in that one browser. The header shows "This device only".
 
 ## Running locally

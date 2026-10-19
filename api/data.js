@@ -22,9 +22,19 @@ async function redis(command) {
   return body.result;
 }
 
+// Ignores the usual copy-paste accidents: surrounding spaces/newlines and
+// quotes around the value in the Vercel dashboard.
+function normalize(code) {
+  let s = String(code ?? '').normalize('NFC').trim();
+  if (s.length > 1 && /^(['"]).*\1$/.test(s)) s = s.slice(1, -1).trim();
+  return s;
+}
+
 function passcodeMatches(given) {
-  const hash = (s) => createHash('sha256').update(String(s)).digest();
-  return timingSafeEqual(hash(given), hash(PASSCODE));
+  let decoded = given;
+  try { decoded = decodeURIComponent(given); } catch { /* sent unencoded */ }
+  const hash = (s) => createHash('sha256').update(normalize(s)).digest();
+  return timingSafeEqual(hash(decoded), hash(PASSCODE));
 }
 
 export default async function handler(req, res) {
@@ -33,11 +43,11 @@ export default async function handler(req, res) {
   if (!REDIS_URL || !REDIS_TOKEN) {
     return res.status(501).json({ error: 'No database connected. Add Upstash Redis to the Vercel project.' });
   }
-  if (!PASSCODE) {
+  if (!normalize(PASSCODE)) {
     return res.status(501).json({ error: 'APP_PASSCODE environment variable is not set.' });
   }
   if (!passcodeMatches(req.headers['x-passcode'] || '')) {
-    return res.status(401).json({ error: 'Wrong passcode' });
+    return res.status(401).json({ error: 'Wrong passcode', code: 'bad_passcode' });
   }
 
   try {

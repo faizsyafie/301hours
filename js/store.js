@@ -63,26 +63,35 @@ function setStatus(status, message = '') {
 async function request(method, body) {
   const res = await fetch('/api/data', {
     method,
-    headers: { 'Content-Type': 'application/json', 'x-passcode': getPasscode() },
+    // Encoded so passcodes with non-ASCII characters can travel in a header.
+    headers: { 'Content-Type': 'application/json', 'x-passcode': encodeURIComponent(getPasscode().trim()) },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => null);
   return { status: res.status, data };
 }
 
 // Applies a server response. Returns true if the doc is now in sync.
 function handleResponse({ status, data }) {
-  if (status === 200) {
+  if (status === 200 && data) {
     if (data.doc) {
       store.doc = mergeDocs(store.doc, data.doc);
       writeLocal();
     }
     return true;
   }
-  if (status === 401) setStatus('locked', 'Enter your passcode to sync.');
-  else if (status === 404) setStatus('local', 'Sync is not set up - data is saved in this browser only.');
-  else if (status === 501) setStatus('local', data.error || 'Sync is not configured.');
-  else setStatus('offline', data.error || `Sync failed (HTTP ${status}).`);
+  if (status === 401 && data?.code === 'bad_passcode') {
+    setStatus('locked', 'Wrong passcode. It must match APP_PASSCODE in Vercel exactly (case-sensitive).');
+  } else if (status === 401 || status === 403) {
+    // Not our API answering: Vercel's Deployment Protection is in front of it.
+    setStatus('offline', 'Vercel Deployment Protection is blocking sync on this URL. Open your main .vercel.app domain, or turn off Vercel Authentication under Settings → Deployment Protection.');
+  } else if (status === 404) {
+    setStatus('local', 'Sync is not set up - data is saved in this browser only.');
+  } else if (status === 501) {
+    setStatus('local', data?.error || 'Sync is not configured.');
+  } else {
+    setStatus('offline', data?.error || `Sync failed (HTTP ${status}).`);
+  }
   return false;
 }
 
@@ -95,23 +104,33 @@ export async function load() {
 let syncing = null;
 let again = false;
 
-export async function sync() {
-  if (syncing) { again = true; return syncing; }
-  syncing = (async () => {
-    setStatus('syncing', '');
-    try {
-      const sentAt = store.doc.updatedAt;
-      if (handleResponse(await request('PUT', store.doc))) {
-        if (store.doc.updatedAt === sentAt) store.dirty = false;
-        setStatus('synced', '');
-      }
-    } catch {
-      setStatus('offline', 'Offline - changes are saved here and will sync later.');
+async function syncOnce() {
+  setStatus('syncing', '');
+  try {
+    const sentAt = store.doc.updatedAt;
+    if (handleResponse(await request('PUT', store.doc))) {
+      if (store.doc.updatedAt === sentAt) store.dirty = false;
+      setStatus('synced', '');
     }
-  })();
-  await syncing;
-  syncing = null;
-  if (again) { again = false; return sync(); }
+  } catch {
+    setStatus('offline', 'Offline - changes are saved here and will sync later.');
+  }
+}
+
+// Resolves only after a sync that started after this call has finished, so a
+// caller (e.g. after entering the passcode) never sees a stale in-flight result.
+export function sync() {
+  again = true;
+  if (!syncing) {
+    syncing = (async () => {
+      while (again) {
+        again = false;
+        await syncOnce();
+      }
+      syncing = null;
+    })();
+  }
+  return syncing;
 }
 
 let timer = null;

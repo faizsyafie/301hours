@@ -6,7 +6,7 @@ import { renderTopics } from './topics.js';
 import { renderSettings } from './settings.js';
 import { stats, currentLevel } from './model.js';
 import { play } from './sounds.js';
-import { $, $$, clock } from './util.js';
+import { $, $$, clock, esc } from './util.js';
 import { video } from './presence.js';
 
 const ROUTES = {
@@ -44,11 +44,11 @@ function updateSync() {
   btn.textContent = SYNC_LABEL[store.status];
   btn.title = store.message || SYNC_LABEL[store.status];
   const banner = $('.banner');
-  const show = store.status === 'locked' || (store.status === 'local' && store.message);
+  const show = store.status === 'locked' || ((store.status === 'local' || store.status === 'offline') && store.message);
   banner.hidden = !show;
   if (show) banner.innerHTML = store.status === 'locked'
-    ? 'SYNC LOCKED. <button type="button" class="link" data-unlock>ENTER PASSCODE</button> to load your data from other devices.'
-    : `${store.message} <a href="https://github.com/faizsyafie/301hours#deploying-to-vercel" target="_blank" rel="noopener">SETUP GUIDE</a>`;
+    ? `SYNC LOCKED. ${esc(store.message)} <button type="button" class="link" data-unlock>ENTER PASSCODE</button>`
+    : `${esc(store.message)} <a href="https://github.com/faizsyafie/301hours#deploying-to-vercel" target="_blank" rel="noopener">SETUP GUIDE</a>`;
 }
 
 function updateHeader() {
@@ -123,6 +123,7 @@ function rain() {
 // ---------- Passcode ----------
 function askPasscode() {
   const dlg = $('#passcode-dialog');
+  if (dlg.open) return;
   $('.error', dlg).hidden = true;
   dlg.querySelector('input').value = '';
   dlg.showModal();
@@ -134,9 +135,9 @@ $('#passcode-dialog').addEventListener('close', async (e) => {
   setPasscode(dlg.querySelector('input').value);
   await sync();
   if (store.status === 'locked') {
-    $('.error', dlg).textContent = 'ACCESS DENIED. WRONG PASSCODE.';
+    $('.error', dlg).textContent = 'ACCESS DENIED. Check it matches APP_PASSCODE in Vercel exactly (case-sensitive), and that you redeployed after setting it.';
     $('.error', dlg).hidden = false;
-    dlg.showModal();
+    if (!dlg.open) dlg.showModal();
   }
 });
 
@@ -167,6 +168,7 @@ let lastLevel = 0;
 subscribe(() => {
   updateSync();
   if (store.status === 'locked' && lastStatus !== 'locked') askPasscode();
+  if (store.status === 'synced' && $('#passcode-dialog').open) $('#passcode-dialog').close('synced');
   lastStatus = store.status;
   const level = currentLevel();
   if (level !== lastLevel) {
