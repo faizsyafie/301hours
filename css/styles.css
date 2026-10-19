@@ -247,13 +247,16 @@ table.watch, table.tape { width: 100%; border-collapse: collapse; font-size: 0.8
 .onair[data-state="grace"] .lamp { background: var(--amber); }
 .onair[data-state="away"], .onair[data-state="error"] { color: var(--red); border-color: var(--red); }
 .onair[data-state="away"] .lamp { background: var(--red); animation: blink 1s steps(2) infinite; }
+.readout { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.06em; margin: -2px 0 8px; }
+.readout b { color: var(--dim); font-weight: 600; }
+.readout b.up { color: var(--green); }
 .cam { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: #000; border: 1px solid var(--line-2); margin-bottom: 10px; }
 .cam-video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; filter: grayscale(1) sepia(1) saturate(2.2) hue-rotate(-12deg) brightness(0.85) contrast(1.15); }
 .cam[data-state="off"] .cam-video, .cam[data-state="error"] .cam-video, .cam.hidden-preview .cam-video { visibility: hidden; }
 .scan { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px); }
 .cam-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); letter-spacing: 0.2em; pointer-events: none; }
 .cam-box { position: absolute; border: 1px solid var(--green); pointer-events: none; transition: all 0.4s; }
-.cam-box::before { content: "SUBJECT"; position: absolute; top: -1px; left: -1px; background: var(--green); color: var(--bg); font-size: 0.65rem; font-weight: 700; padding: 0 4px; }
+.cam-box::before { content: "TRADER"; position: absolute; top: -1px; left: -1px; background: var(--green); color: var(--bg); font-size: 0.65rem; font-weight: 700; padding: 0 4px; }
 .manual summary { cursor: pointer; list-style: none; margin: 0; }
 .manual summary::-webkit-details-marker { display: none; }
 .manual:not([open]) summary { border-bottom: 0; padding-bottom: 0; }
