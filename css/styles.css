@@ -322,17 +322,27 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
 .tdialog.wide { width: min(640px, calc(100vw - 32px)); }
 .nav-about { font: inherit; padding: 4px 10px; color: var(--dim); background: transparent; border: 1px solid transparent; cursor: pointer; white-space: nowrap; font-weight: 500; }
 .nav-about:hover { color: var(--text); border-color: var(--line); }
-.about p { margin: 0 0 12px; line-height: 1.6; }
-.about-hero { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.about p { margin: 0; line-height: 1.5; }
+.about-hero { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .about-hero .brand-box { font-size: 1.4rem; padding: 4px 10px; }
 .about-title { font-weight: 700; letter-spacing: 0.18em; color: var(--amber); }
-.about-list { list-style: none; margin: 0 0 14px; padding: 0; border-top: 1px solid var(--line); }
-.about-list li { padding: 7px 0; border-bottom: 1px dashed var(--line); color: var(--dim); }
-.about-list b { display: inline-block; width: 72px; color: var(--amber); }
-.about-keys { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.78rem; color: var(--dim); margin-bottom: 16px; }
+.about-list { list-style: none; margin: 0 0 12px; padding: 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
+.about-list li { padding: 6px 0; border-bottom: 1px dashed var(--line); color: var(--dim); font-size: 0.82rem; }
+.about-list li { display: grid; grid-template-columns: 74px 1fr; gap: 6px; }
+.about-list b { color: var(--amber); }
+.about-keys { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.75rem; color: var(--dim); margin-bottom: 12px; }
 .about-keys kbd { margin-right: 2px; }
-.about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.about-legal { margin: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+.about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.about-legal { margin: 0; border-top: 1px solid var(--line); padding-top: 8px; font-size: 0.72rem; }
+@media (max-width: 640px) {
+  .about-list { grid-template-columns: 1fr; }
+  .about-list li { padding: 3px 0; }
+  .tdialog { padding: 14px; }
+  .about-hero { margin-bottom: 8px; }
+  .about-hero .brand-box { font-size: 1.1rem; padding: 2px 8px; }
+  .about-keys { gap: 4px 10px; margin-bottom: 10px; }
+  .tdialog .phead { margin-bottom: 8px; padding-bottom: 6px; }
+}
 .tdialog[open] { animation: tdialog-in 0.12s ease-out; }
 @keyframes tdialog-in { from { opacity: 0; transform: translateY(-6px); } }
 .tdialog-body { margin: 4px 0 16px; color: var(--text); }
