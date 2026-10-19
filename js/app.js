@@ -1,5 +1,5 @@
 import { store, load, subscribe, sync, save, setPasscode } from './store.js';
-import { timer, onTimer, onAlert, remainingSec, setTopic } from './timer.js';
+import { timer, onTimer, onAlert, remainingSec, setTopic, restoreTimer } from './timer.js';
 import { toast } from './toast.js';
 import { renderDashboard, tickerItems, milestonesFor, symbol } from './dashboard.js';
 import { renderStudy } from './study.js';
@@ -201,5 +201,6 @@ $('#cam-holder').append(video);
 load(); // reads this browser's copy synchronously, then syncs in the background
 lastStamp = store.doc.updatedAt;
 lastLevel = currentLevel();
+restoreTimer();
 route();
 updateTape();

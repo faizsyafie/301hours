@@ -2,7 +2,7 @@
 // (when the presence check is on); breaks run on the wall clock.
 import { store, save } from './store.js';
 import { isPresent, onPresence, presence, startCamera } from './presence.js';
-import { uid } from './util.js';
+import { uid, dayKey } from './util.js';
 import { play } from './sounds.js';
 
 const TICK_MS = 250;
@@ -54,7 +54,64 @@ export function onTimer(fn) {
 
 function emit() {
   for (const fn of listeners) fn(timer);
+  persistSoon();
 }
+
+// ---------- Surviving a reload ----------
+// The timer's state is kept in this browser so a refresh or an accidental tab
+// close picks up where it left off.
+const TIMER_KEY = '301hours:timer';
+const RESTORE_WITHIN_MS = 6 * 3600000;
+const SAVED = ['phase', 'running', 'elapsedMs', 'awayMs', 'completed', 'walkouts', 'topicId', 'itemId', 'sessionId'];
+let lastPersist = 0;
+
+function persist() {
+  lastPersist = Date.now();
+  const state = Object.fromEntries(SAVED.map((k) => [k, timer[k]]));
+  try {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({ ...state, warned, savedAt: lastPersist, day: dayKey(lastPersist) }));
+  } catch { /* storage unavailable */ }
+}
+
+let lastShape = '';
+function persistSoon() {
+  // Save at once when running/phase change, otherwise at most once a second.
+  const shape = `${timer.running}|${timer.phase}|${timer.topicId}|${timer.itemId}`;
+  if (shape !== lastShape || Date.now() - lastPersist > 1000) {
+    lastShape = shape;
+    persist();
+  }
+}
+
+// Call once after the store has loaded (phase lengths come from settings).
+// Returns true if a previous timer was restored.
+export function restoreTimer() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(TIMER_KEY)); } catch { saved = null; }
+  const now = Date.now();
+  if (!saved || now - saved.savedAt > RESTORE_WITHIN_MS) return false;
+  for (const k of SAVED) if (k in saved) timer[k] = saved[k];
+  if (saved.day !== dayKey(now)) timer.completed = 0;
+  warned = Boolean(saved.warned);
+  timer.counting = false;
+  // The block's session record must still exist (it may have been too short to keep).
+  const s = timer.sessionId && store.doc.sessions.find((x) => x.id === timer.sessionId && !x.deleted);
+  if (!s) timer.sessionId = '';
+  lastTick = now;
+  if (timer.running) {
+    if (timer.phase !== 'study') {
+      // Breaks run on the wall clock, including while the page was closed.
+      timer.elapsedMs += now - saved.savedAt;
+      if (timer.elapsedMs >= phaseLengthSec() * 1000) finishPhase();
+    } else if (settings().presence) {
+      // Study time while the page was closed can't be verified, so it isn't counted.
+      startCamera();
+    }
+  }
+  emit();
+  return true;
+}
+
 
 const settings = () => store.doc.settings;
 
@@ -248,5 +305,8 @@ onPresence(() => {
   }
 });
 
-window.addEventListener('pagehide', () => { if (timer.sessionId) flushSession(false); });
+window.addEventListener('pagehide', () => {
+  if (timer.sessionId) flushSession(false);
+  persist();
+});
 
