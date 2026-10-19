@@ -18,7 +18,7 @@ const HTML = `
       <li><b>TOPICS</b> Level I–III checklist + reviews</li>
       <li><b>EARNINGS</b> Practice scores: BEAT or MISS</li>
       <li><b>RATINGS</b> BUY/HOLD/TRIM, AAA–CCC, 10-K</li>
-      <li><b>SYNC</b> Passcode-protected, every device</li>
+      <li><b>SYNC</b> Sign in to sync across devices</li>
     </ul>
     <div class="about-keys">
       <span><kbd>1</kbd>–<kbd>5</kbd> pages</span>

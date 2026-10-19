@@ -9,7 +9,7 @@ Styled as a trading terminal. Your study hours trade as `$CFA1`, `$CFA2` or `$CF
 - **Study**: a Pomodoro timer with a desk cam. The market is open while you're in frame. Walk away and trading halts until you're back. Breaks don't need the camera. Keys: `Space` open/halt, `S` skip, `R` reset. Blocks and breaks start by themselves (both optional in Setup), with a sound and an in-page alert at each change and a 1-minute warning before each one ends.
 - **Topics**: the curriculum for each level as a checklist. Rename, re-ticker, add or delist anything to match your curriculum year. The Level II and III module lists follow the recent curriculum structure; check them against yours.
 - **Milestones**: crossing 10, 25, 50, 100, 150, 200, 250, 300 and 301 hours triggers a breaking-news banner.
-- **Sync**: data is saved in the browser and synced to a small database on Vercel, so it's the same on every device. Protected by a passcode.
+- **Sync & accounts**: data is saved in the browser and synced to a small database on Vercel. Either sign in with Google (one account per person, so others can use it too) or use a single passcode.
 - **General study (GEN)**: time logged without a topic counts towards your totals and shows as its own GEN line in the watchlist, ticker and heatmap, but is never rated against the exam.
 - **Analyst ratings**: each topic's share of your hours vs its share of the exam: UNDERWEIGHT · BUY, MARKET WEIGHT · HOLD or OVERWEIGHT · TRIM, plus a "top pick" to study next.
 - **Earnings**: log question-bank sets and mock exams; each one BEATs or MISSes your target score (70% by default), with accuracy per topic and a mock-exam trend.
@@ -38,6 +38,29 @@ Tips:
 3. **Set a passcode.** In *Settings → Environment Variables*, add `APP_PASSCODE` with a passcode of your choice.
 4. **Redeploy** (*Deployments → ⋯ → Redeploy*) so the new variables are picked up.
 5. Open the site and enter your passcode once on each device.
+
+### Accounts: let other people use it (Sign in with Google)
+
+With accounts on, anyone can open your site, sign in with Google and get their own separate progress, synced across their devices. Without them, the site uses the single shared `APP_PASSCODE` above.
+
+1. **Create a Google OAuth client** (free) at [console.cloud.google.com](https://console.cloud.google.com):
+   - Create a project (any name, e.g. *301 Terminal*).
+   - *APIs & Services → OAuth consent screen*: choose **External**, fill in the app name and your email, keep the default scopes (email, profile, openid), then **Publish app**. While it's in *Testing*, only test users you list can sign in.
+   - *APIs & Services → Credentials → Create credentials → OAuth client ID*: type **Web application**. Under **Authorized JavaScript origins** add your site's address, e.g. `https://301hours.vercel.app` (no trailing slash). No redirect URI is needed.
+   - Copy the **Client ID** (ends in `.apps.googleusercontent.com`).
+2. **In Vercel → Settings → Environment Variables** add:
+   - `GOOGLE_CLIENT_ID`: the client ID from step 1.
+   - `SESSION_SECRET`: a long random string, e.g. 40+ characters from a password generator. It signs login cookies; changing it signs everyone out.
+   - *Optional* `ALLOWED_EMAILS`: limit who can sign in, e.g. `alex@gmail.com, sam@gmail.com` or `@youruni.edu` for a whole domain.
+3. **Redeploy.** The site now shows **SIGN IN** in the header. `APP_PASSCODE` is ignored once accounts are on, and can be removed.
+
+**Your existing progress:** sign in on the device you've been using. The app offers to import that device's saved progress into your account. If you skip that, a backup (Setup → Backup) can be loaded later.
+
+**Notes**
+- Each account's data is stored under its own key in your Redis database; the cap is 2 MB per account (years of study).
+- People can sign out (which removes their copy from that browser) and delete their cloud data from the account menu.
+- Sign-in only works on origins listed in step 1. Vercel preview URLs change per deployment, so test sign-in on your main domain, or add a preview URL temporarily.
+- Desk-cam detection always runs on each person's own device; no video reaches you or the server.
 
 ### If sync isn't working
 

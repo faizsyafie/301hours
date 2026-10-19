@@ -531,3 +531,16 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 @media (max-width: 640px) { .gen-card { grid-template-columns: 48px minmax(0, 1fr) auto; } .gen-card .muted.small, .gen-card .rating { display: none; } .gen-card .btn { grid-column: 1 / -1; } }
 .danger-zone { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
 .danger-zone .phead > span:first-child { color: var(--red); }
+
+/* ---------- Accounts ---------- */
+.account { font: inherit; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; border: 1px solid var(--amber); background: transparent; color: var(--amber); padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+.account:hover { background: var(--amber); color: var(--bg); }
+.account.signed { border-color: var(--line-2); padding: 1px 3px; }
+.avatar { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 4px; background: var(--amber); color: var(--bg); font-weight: 700; font-size: 0.72rem; }
+.avatar.big { min-width: 44px; height: 44px; font-size: 1.1rem; }
+.acct { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+.acct-row { margin: 8px 0; }
+.signin-hero { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+.signin-hero .brand-box { font-size: 1.3rem; padding: 4px 10px; }
+.gbtn { min-height: 44px; display: flex; justify-content: center; align-items: center; margin: 6px 0 10px; }
+.signin-privacy { border-top: 1px solid var(--line); padding-top: 8px; margin: 10px 0 12px; }

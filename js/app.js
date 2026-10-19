@@ -11,6 +11,7 @@ import { creditRating, gradeRank, weakest } from './ratings.js';
 import { announceWeekly } from './report.js';
 import { play } from './sounds.js';
 import { showAbout } from './about.js';
+import { initAuth, setupAccountUI, showSignIn } from './account.js';
 import './install.js';
 import { $, $$, clock, esc } from './util.js';
 import { video } from './presence.js';
@@ -43,7 +44,7 @@ function route() {
   updateHeader();
 }
 
-const SYNC_LABEL = { synced: 'SYNCED', syncing: 'SYNCING', offline: 'OFFLINE', locked: 'LOCKED', local: 'NOT SYNCED' };
+const SYNC_LABEL = { synced: 'SYNCED', syncing: 'SYNCING', offline: 'OFFLINE', locked: 'LOCKED', local: 'NOT SYNCED', signedout: 'THIS DEVICE' };
 
 function updateSync() {
   const btn = $('.sync');
@@ -51,9 +52,11 @@ function updateSync() {
   btn.textContent = SYNC_LABEL[store.status];
   btn.title = store.message || SYNC_LABEL[store.status];
   const banner = $('.banner');
-  const show = store.status === 'locked' || ((store.status === 'local' || store.status === 'offline') && store.message);
+  const show = store.status === 'locked' || store.status === 'signedout' || ((store.status === 'local' || store.status === 'offline') && store.message);
   banner.hidden = !show;
-  if (show) banner.innerHTML = store.status === 'locked'
+  if (show) banner.innerHTML = store.status === 'signedout'
+    ? `NOT SIGNED IN. Your progress is saved on this device only. <button type="button" class="link" data-signin>SIGN IN</button> to keep it in your account and sync it everywhere.`
+    : store.status === 'locked'
     ? `SYNC LOCKED. ${esc(store.message)} <button type="button" class="link" data-unlock>ENTER PASSCODE</button>`
     : `${esc(store.message)} <a href="https://github.com/faizsyafie/301hours#deploying-to-vercel" target="_blank" rel="noopener">SETUP GUIDE</a>`;
 }
@@ -183,7 +186,8 @@ document.addEventListener('click', (e) => {
     save();
     return;
   }
-  if (e.target.closest('[data-unlock]') || (e.target.closest('.sync') && store.status === 'locked')) askPasscode();
+  if (e.target.closest('[data-signin]') || (e.target.closest('.sync') && store.status === 'signedout')) showSignIn();
+  else if (e.target.closest('[data-unlock]') || (e.target.closest('.sync') && store.status === 'locked')) askPasscode();
   else if (e.target.closest('.sync') && (store.status === 'local' || store.status === 'offline')) location.hash = '#/settings';
   else if (e.target.closest('.sync')) sync();
 });
@@ -201,7 +205,7 @@ subscribe(() => {
   updateSync();
   if (store.status === 'locked' && lastStatus !== 'locked') askPasscode();
   if (store.status === 'synced' && $('#passcode-dialog').open) $('#passcode-dialog').close('synced');
-  if (lastStatus === 'syncing' && store.status !== 'syncing') dataReady = true;
+  if ((lastStatus === 'syncing' && store.status !== 'syncing') || store.status === 'signedout') dataReady = true;
   lastStatus = store.status;
   const level = currentLevel();
   if (level !== lastLevel) {
@@ -228,9 +232,11 @@ tick();
 setInterval(tick, 1000);
 
 $('#cam-holder').append(video);
+await initAuth(); // which sign-in mode is on, and who is signed in (one quick request)
 load(); // reads this browser's copy synchronously, then syncs in the background
 lastStamp = store.doc.updatedAt;
 lastLevel = currentLevel();
 restoreTimer();
 route();
+setupAccountUI();
 updateTape();

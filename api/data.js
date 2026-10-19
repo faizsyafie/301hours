@@ -1,28 +1,13 @@
-// GET  /api/data  -> { doc }        current study data (or null if none yet)
-// PUT  /api/data  -> { doc }        merge the sent copy into the stored one
-// Requires the `x-passcode` header to match APP_PASSCODE.
-// Storage is whichever Redis is connected to the Vercel project (see lib/db.js).
-import { createHash, timingSafeEqual } from 'node:crypto';
+// GET    /api/data  -> { doc }   this account's study data (or null if none yet)
+// PUT    /api/data  -> { doc }   merge the sent copy into the stored one
+// DELETE /api/data  -> { ok }    delete this account's stored data
+// Who you are decides where the data lives (see lib/auth.js): a Google account
+// in accounts mode, or the single shared slot in passcode mode.
 import { mergeDocs } from '../lib/merge.js';
 import * as db from '../lib/db.js';
+import { dataSlot } from '../lib/auth.js';
 
-const KEY = '301hours:data';
-const PASSCODE = process.env.APP_PASSCODE;
-
-// Ignores the usual copy-paste accidents: surrounding spaces/newlines and
-// quotes around the value in the Vercel dashboard.
-function normalize(code) {
-  let s = String(code ?? '').normalize('NFC').trim();
-  if (s.length > 1 && /^(['"]).*\1$/.test(s)) s = s.slice(1, -1).trim();
-  return s;
-}
-
-function passcodeMatches(given) {
-  let decoded = given;
-  try { decoded = decodeURIComponent(given); } catch { /* sent unencoded */ }
-  const hash = (s) => createHash('sha256').update(normalize(s)).digest();
-  return timingSafeEqual(hash(decoded), hash(PASSCODE));
-}
+const MAX_BYTES = 2_000_000;
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -30,16 +15,12 @@ export default async function handler(req, res) {
   if (!db.backend) {
     return res.status(501).json({ error: 'No database connected. Add a Redis database (e.g. Upstash) to the Vercel project, then redeploy.' });
   }
-  if (!normalize(PASSCODE)) {
-    return res.status(501).json({ error: 'APP_PASSCODE environment variable is not set.' });
-  }
-  if (!passcodeMatches(req.headers['x-passcode'] || '')) {
-    return res.status(401).json({ error: 'Wrong passcode', code: 'bad_passcode' });
-  }
+  const slot = dataSlot(req);
+  if (slot.error) return res.status(slot.status).json({ error: slot.error, code: slot.code });
 
   try {
     if (req.method === 'GET') {
-      const raw = await db.get(KEY);
+      const raw = await db.get(slot.key);
       return res.status(200).json({ doc: raw ? JSON.parse(raw) : null });
     }
 
@@ -48,13 +29,20 @@ export default async function handler(req, res) {
       if (!incoming || !Array.isArray(incoming.topics) || !Array.isArray(incoming.sessions)) {
         return res.status(400).json({ error: 'Invalid data' });
       }
-      const raw = await db.get(KEY);
+      const raw = await db.get(slot.key);
       const merged = mergeDocs(raw ? JSON.parse(raw) : null, incoming);
-      await db.set(KEY, JSON.stringify(merged));
+      const out = JSON.stringify(merged);
+      if (out.length > MAX_BYTES) return res.status(413).json({ error: 'Your data is over the 2 MB storage limit. Download a backup and reset old levels.' });
+      await db.set(slot.key, out);
       return res.status(200).json({ doc: merged });
     }
 
-    res.setHeader('Allow', 'GET, PUT');
+    if (req.method === 'DELETE') {
+      await db.del(slot.key);
+      return res.status(200).json({ ok: true });
+    }
+
+    res.setHeader('Allow', 'GET, PUT, DELETE');
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     return res.status(500).json({ error: `Database error: ${err.message}` });

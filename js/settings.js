@@ -4,6 +4,7 @@ import { $, esc, dayKey } from './util.js';
 import { PATHWAYS } from './curriculum.js';
 import { notice, ask } from './dialog.js';
 import { resetProgress } from './reset.js';
+import { showSignIn, signOut, deleteCloudData } from './account.js';
 import { isInstalled, isIOS, canPrompt, promptInstall, onInstallChange } from './install.js';
 
 const FIELDS = [
@@ -32,6 +33,7 @@ const SYNC_TEXT = {
   offline: 'Can\'t reach the server right now. Changes are kept in this browser and will sync later.',
   locked: 'Locked. Enter your passcode to sync.',
   local: 'Not synced. Data is saved in this browser only.',
+  signedout: 'Not signed in. Progress is saved on this device only.',
 };
 
 export function renderSettings(root) {
@@ -57,6 +59,7 @@ export function renderSettings(root) {
           <div class="phead"><span>SYNC</span></div>
           <p class="sync-text"></p>
           <p class="note sync-msg"></p>
+          <div class="acct-row row"></div>
           <form class="pass-form row">
             <input name="code" type="password" placeholder="PASSCODE" value="${esc(getPasscode())}" autocomplete="current-password">
             <button class="btn" type="submit">SAVE &amp; SYNC</button>
@@ -93,8 +96,21 @@ export function renderSettings(root) {
 
   const showSync = () => {
     $('.sync-text', root).textContent = SYNC_TEXT[store.status] || '';
-    $('.sync-msg', root).textContent = store.message;
+    $('.sync-msg', root).textContent = store.status === 'signedout' ? '' : store.message;
+    const google = store.authMode === 'google';
+    $('.pass-form', root).hidden = google;
+    const acct = $('.acct-row', root);
+    acct.hidden = !google;
+    acct.innerHTML = !google ? '' : store.user
+      ? `<span class="note" style="margin:0">Signed in as <b>${esc(store.user.email)}</b></span><button type="button" class="btn small" data-act="signout">SIGN OUT</button><button type="button" class="btn small danger" data-act="delete-cloud">DELETE MY CLOUD DATA</button>`
+      : '<button type="button" class="btn primary" data-act="signin">SIGN IN WITH GOOGLE</button>';
   };
+  root.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'signin') showSignIn();
+    else if (act === 'signout') signOut();
+    else if (act === 'delete-cloud') deleteCloudData();
+  });
   showSync();
 
   $('.settings-form', root).addEventListener('submit', (e) => {
@@ -219,6 +235,16 @@ async function diagnose() {
     rows.push(health.databaseReachable
       ? [true, 'Database answers.', '']
       : [false, `Database not reachable: ${health.error}`, 'Reconnect the database in Vercel → Storage, then redeploy.']);
+  }
+
+  if (health.authMode === 'google' || health.googleClientIdSet || health.sessionSecretSet) {
+    rows.push(health.googleClientIdSet ? [true, 'GOOGLE_CLIENT_ID is set.', ''] : [false, 'GOOGLE_CLIENT_ID is not set.', 'Create an OAuth client ID in Google Cloud (see README → Accounts) and add it in Vercel, then redeploy.']);
+    rows.push(health.sessionSecretSet ? [true, 'SESSION_SECRET is set.', ''] : [false, 'SESSION_SECRET is not set.', 'Add a long random value as SESSION_SECRET in Vercel, then redeploy.']);
+    if (health.authMode === 'google') {
+      rows.push(health.signedIn ? [true, `Signed in${store.user ? ` as ${store.user.email}` : ''}.`, ''] : [false, 'Not signed in on this device.', 'Press SIGN IN. If Google shows "origin not allowed", add this site\'s address under Authorized JavaScript origins in your Google OAuth client.']);
+      if (health.allowList) rows.push([null, 'Sign-in is limited to ALLOWED_EMAILS.', '']);
+    }
+    return rows;
   }
 
   rows.push(health.passcodeSet
