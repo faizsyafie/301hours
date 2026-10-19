@@ -8,6 +8,7 @@ import { renderSettings } from './settings.js';
 import { stats, currentLevel } from './model.js';
 import { play } from './sounds.js';
 import { showAbout } from './about.js';
+import './install.js';
 import { $, $$, clock, esc } from './util.js';
 import { video } from './presence.js';
 

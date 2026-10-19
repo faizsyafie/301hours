@@ -3,6 +3,7 @@ import { mergeDocs } from '../lib/merge.js';
 import { $, esc, dayKey } from './util.js';
 import { PATHWAYS } from './curriculum.js';
 import { notice } from './dialog.js';
+import { isInstalled, isIOS, canPrompt, promptInstall, onInstallChange } from './install.js';
 
 const FIELDS = [
   ['goalHours', 'TARGET HOURS (PER LEVEL)', 'number', { min: 1, max: 2000 }],
@@ -60,6 +61,11 @@ export function renderSettings(root) {
           </form>
           <div class="row" style="margin-top:10px"><button type="button" class="btn" data-act="diagnose">RUN DIAGNOSTICS</button></div>
           <ul class="diag" hidden></ul>
+        </section>
+        <section class="panel">
+          <div class="phead"><span>APP</span></div>
+          <p class="note install-text"></p>
+          <div class="row"><button type="button" class="btn" data-act="install" hidden>INSTALL APP</button></div>
         </section>
         <section class="panel">
           <div class="phead"><span>BACKUP</span></div>
@@ -135,7 +141,22 @@ export function renderSettings(root) {
     }
   });
 
-  return subscribe(showSync);
+  const showInstall = () => {
+    const btn = $('[data-act="install"]', root);
+    btn.hidden = !canPrompt() || isInstalled();
+    $('.install-text', root).textContent = isInstalled()
+      ? 'Installed. You\'re running 301 TERMINAL as an app.'
+      : canPrompt()
+        ? 'Install 301 TERMINAL as an app: its own icon and window, no browser bar, and it opens even offline.'
+        : isIOS()
+          ? 'To install: tap Share in Safari, then "Add to Home Screen".'
+          : 'To install, use your browser\'s menu: "Install 301 TERMINAL" or "Add to Home screen". (Chrome and Edge show it in the address bar.)';
+  };
+  showInstall();
+  $('[data-act="install"]', root).addEventListener('click', promptInstall);
+  const offInstall = onInstallChange(showInstall);
+  const offSync = subscribe(showSync);
+  return () => { offInstall(); offSync(); };
 }
 
 // Checks each link in the sync chain and says how to fix the first broken one.
