@@ -1,0 +1,6 @@
+{
+  "name": "301hours",
+  "private": true,
+  "type": "module",
+  "description": "CFA study tracker: dashboard, presence-checked Pomodoro timer and curriculum checklist."
+}
