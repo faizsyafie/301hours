@@ -1,7 +1,8 @@
 import { store } from './store.js';
 import { stats, hourStamps, examCountdown, currentLevel, tickerOf, levelScores, accuracy, DAY } from './model.js';
 import { MILESTONES } from './curriculum.js';
-import { analystRatings, topPick, ratingMinHours } from './ratings.js';
+import { analystRatings, topPick, ratingMinHours, creditRating } from './ratings.js';
+import { panel } from './dialog.js';
 import { setTopic } from './timer.js';
 import { schedule, act as reviewAct } from './reviews.js';
 import { heatmapPanel } from './heatmap.js';
@@ -25,6 +26,22 @@ export function milestonesFor(goal) {
   const list = MILESTONES.filter(([h]) => h <= goal);
   if (!list.some(([h]) => h === goal)) list.push([goal, `${goal} HOURS. TARGET HIT. ALL-TIME HIGH.`]);
   return list;
+}
+
+export function showCredit() {
+  const st = stats();
+  const s = store.doc.settings;
+  const cr = creditRating(st, s.dailyGoalHours);
+  const bar = (label, val, max, detail) => `
+    <div class="cr-row"><span class="k">${label}</span><div class="cr-track"><div style="width:${(val / max) * 100}%"></div></div><span class="num">${val.toFixed(1)}/${max}</span><span class="muted small">${detail}</span></div>`;
+  const body = cr.grade === 'NR'
+    ? `<p>Not rated yet. Study on ${cr.needDays} more day${cr.needDays === 1 ? '' : 's'} to get your first rating.</p>`
+    : `<div class="cr-head"><span class="cr-grade">${cr.grade}</span><div><div>SCORE <b>${cr.score.toFixed(0)}</b>/100 · OUTLOOK <b class="outlook ${cr.outlook.toLowerCase()}">${cr.outlook}</b></div><div class="muted small">Last ${cr.days} days, ${symbol()}. Outlook compares the last 7 days with the 7 before.</div></div></div>
+       ${bar('CONSISTENCY', cr.parts.consistency, 40, `${cr.studied}/${cr.days} days studied`)}
+       ${bar('TARGET', cr.parts.target, 30, `${cr.hit}/${cr.days} days hit ${s.dailyGoalHours || 0}h`)}
+       ${bar('CAMERA', cr.parts.camera, 15, 'share of time verified')}
+       ${bar('STREAK', cr.parts.streak, 15, `${st.streak} day streak`)}`;
+  return panel('CREDIT RATING', `${body}<p class="muted small cr-scale">AAA ≥90 · AA ≥80 · A ≥70 · BBB ≥60 · BB ≥50 · B ≥40 · CCC below</p>`);
 }
 
 function pickLine(st) {
@@ -69,6 +86,7 @@ function quote(st) {
         ${cell('REQ/D', req, exam && exam.days > 0 && st.today / 3600 >= Number(req) ? 'up' : '')}
         ${cell('WK', (st.week / 3600).toFixed(2))}
         ${cell('STRK', `${st.streak}D`, st.streak ? 'up' : '')}
+        ${(() => { const cr = creditRating(st, s.dailyGoalHours); return cell('RATING', `<button type="button" class="credit" data-credit title="How this is calculated">${cr.grade}${cr.outlook ? ` <span class="outlook ${cr.outlook.toLowerCase()}">${{ POSITIVE: '▲', NEGATIVE: '▼', STABLE: '■' }[cr.outlook]}</span>` : ''}</button>`); })()}
         ${cell('MODS', `${mods.done}/${mods.total}`)}
         ${cell('CAM', st.total ? `${Math.round((st.verified / st.total) * 100)}%` : '—')}
         ${(() => { const a30 = accuracy(levelScores(level), Date.now() - 30 * DAY); return cell('ACC 30D', a30.pct === null ? '<a href="#/earnings">LOG</a>' : `${a30.pct.toFixed(1)}%`, a30.pct === null ? '' : a30.pct >= (s.scoreTarget || 70) ? 'up' : 'down'); })()}
@@ -314,6 +332,7 @@ export function renderDashboard(root) {
     reviewAct(kind, topicId, itemId); // saving re-renders the dashboard
   }));
 
+  root.querySelector('[data-credit]')?.addEventListener('click', showCredit);
   root.querySelector('[data-pick]')?.addEventListener('click', (e) => setTopic(e.currentTarget.dataset.pick, ''));
 
   return () => ro.disconnect();

@@ -7,6 +7,7 @@ import { renderTopics } from './topics.js';
 import { renderSettings } from './settings.js';
 import { renderScores } from './scores.js';
 import { stats, currentLevel } from './model.js';
+import { creditRating, gradeRank, weakest } from './ratings.js';
 import { play } from './sounds.js';
 import { showAbout } from './about.js';
 import './install.js';
@@ -97,6 +98,27 @@ function checkMilestones() {
   breaking(h, headline);
 }
 
+// ---------- Credit rating changes ----------
+let dataReady = false; // true once the first sync attempt has finished
+function checkCredit() {
+  if (!dataReady) return;
+  const s = store.doc.settings;
+  const level = currentLevel();
+  const cr = creditRating(stats(level), s.dailyGoalHours);
+  const prev = (s.creditRatings || {})[level];
+  if (cr.grade === 'NR' || prev === cr.grade) return;
+  s.creditRatings = { ...(s.creditRatings || {}), [level]: cr.grade };
+  s.u = Date.now();
+  save();
+  if (!prev) {
+    toast({ kind: 'study', title: `◆ INITIAL RATING · ${symbol()} RATED ${cr.grade}`, body: `Outlook ${cr.outlook.toLowerCase()}. Tap RATING on the dashboard to see how it's calculated.` });
+  } else if (gradeRank(cr.grade) < gradeRank(prev)) {
+    toast({ kind: 'study', title: `▲ UPGRADED · ${prev} → ${cr.grade}`, body: `${symbol()} upgraded on stronger consistency. Outlook ${cr.outlook.toLowerCase()}.` });
+  } else {
+    toast({ kind: 'warn', title: `▼ DOWNGRADED · ${prev} → ${cr.grade}`, body: `Main driver: ${weakest(cr.parts)}. Outlook ${cr.outlook.toLowerCase()}.` });
+  }
+}
+
 function breaking(h, headline) {
   const el = $('.breaking');
   el.innerHTML = `
@@ -177,6 +199,7 @@ subscribe(() => {
   updateSync();
   if (store.status === 'locked' && lastStatus !== 'locked') askPasscode();
   if (store.status === 'synced' && $('#passcode-dialog').open) $('#passcode-dialog').close('synced');
+  if (lastStatus === 'syncing' && store.status !== 'syncing') dataReady = true;
   lastStatus = store.status;
   const level = currentLevel();
   if (level !== lastLevel) {
@@ -190,6 +213,7 @@ subscribe(() => {
   lastStamp = store.doc.updatedAt;
   updateTape();
   checkMilestones();
+  checkCredit();
 });
 
 onTimer(updateMiniTimer);

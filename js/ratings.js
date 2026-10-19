@@ -50,3 +50,81 @@ export function topPick(topics, ratings) {
 }
 
 export const ratingMinHours = MIN_HOURS_TO_RATE;
+
+// ---------- Credit rating ----------
+// A consistency score out of 100 over the last 14 days, mapped to AAA…CCC:
+//   40  days you studied
+//   30  days you hit your daily target
+//   15  share of time verified by the desk cam
+//   15  current streak (capped at 14 days)
+// Outlook compares the last 7 days with the 7 before.
+const GRADES = [[90, 'AAA'], [80, 'AA'], [70, 'A'], [60, 'BBB'], [50, 'BB'], [40, 'B'], [0, 'CCC']];
+const DAY_MS = 86400000;
+const WINDOW = 14;
+const MIN_STUDY_DAYS = 3;
+
+const gradeOf = (score) => GRADES.find(([min]) => score >= min)[1];
+export const gradeRank = (g) => GRADES.findIndex(([, x]) => x === g);
+
+function dayKeyOf(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function windowScore(sessions, endDay, days, dailyGoalSec, streak) {
+  const byDay = new Map();
+  let total = 0, verified = 0;
+  const start = endDay - (days - 1) * DAY_MS;
+  for (const s of sessions) {
+    if (s.start < start || s.start >= endDay + DAY_MS) continue;
+    const k = dayKeyOf(s.start);
+    byDay.set(k, (byDay.get(k) || 0) + s.sec);
+    total += s.sec;
+    if (s.verified) verified += s.sec;
+  }
+  let studied = 0, hit = 0;
+  for (let i = 0; i < days; i++) {
+    const sec = byDay.get(dayKeyOf(endDay - i * DAY_MS)) || 0;
+    if (sec > 0) studied++;
+    if (dailyGoalSec ? sec >= dailyGoalSec : sec > 0) hit++;
+  }
+  const parts = {
+    consistency: (studied / days) * 40,
+    target: (hit / days) * 30,
+    camera: total ? (verified / total) * 15 : 0,
+    streak: (Math.min(streak, days) / days) * 15,
+  };
+  return { score: Object.values(parts).reduce((a, b) => a + b, 0), parts, studied, hit, days };
+}
+
+// st: stats() for the level; dailyGoalHours from settings.
+export function creditRating(st, dailyGoalHours) {
+  const studyDays = st.byDay ? [...st.byDay.values()].filter((v) => v > 0).length : 0;
+  if (studyDays < MIN_STUDY_DAYS) {
+    return { grade: 'NR', score: null, outlook: '', parts: null, needDays: MIN_STUDY_DAYS - studyDays };
+  }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const t0 = today.getTime();
+  // Don't penalise today before you've had a chance to study.
+  const end = (st.byDay.get(dayKeyFromStats(t0)) || 0) > 0 ? t0 : t0 - DAY_MS;
+  const goal = (dailyGoalHours || 0) * 3600;
+  const main = windowScore(st.sessions, end, WINDOW, goal, st.streak);
+  const recent = windowScore(st.sessions, end, 7, goal, st.streak).score;
+  const prior = windowScore(st.sessions, end - 7 * DAY_MS, 7, goal, st.streak).score;
+  const outlook = recent - prior > 8 ? 'POSITIVE' : recent - prior < -8 ? 'NEGATIVE' : 'STABLE';
+  return { grade: gradeOf(main.score), score: main.score, outlook, parts: main.parts, studied: main.studied, hit: main.hit, days: WINDOW };
+}
+
+// stats().byDay uses util.dayKey (YYYY-MM-DD).
+function dayKeyFromStats(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// The weakest component, for downgrade messages.
+export function weakest(parts) {
+  const max = { consistency: 40, target: 30, camera: 15, streak: 15 };
+  const names = { consistency: 'fewer study days', target: 'daily target missed more often', camera: 'less camera-verified time', streak: 'streak broken' };
+  const [k] = Object.entries(parts).sort((a, b) => a[1] / max[a[0]] - b[1] / max[b[0]])[0];
+  return names[k];
+}

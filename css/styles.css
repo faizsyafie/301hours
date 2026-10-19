@@ -157,7 +157,7 @@ label.inline { flex-direction: row; align-items: center; gap: 8px; }
 .quote-px { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-top: 6px; }
 .px { font-size: 3.6rem; font-weight: 700; line-height: 1; color: var(--amber); letter-spacing: -0.02em; }
 .chg { font-size: 1.05rem; font-weight: 600; }
-.qstrip { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(9, 1fr); border-top: 1px solid var(--line); padding-top: 10px; gap: 8px; }
+.qstrip { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); border-top: 1px solid var(--line); padding-top: 10px; gap: 8px; }
 .qcell { display: flex; flex-direction: column; }
 .qcell .k { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em; }
 .qcell .v { font-size: 1.05rem; font-weight: 600; }
@@ -467,3 +467,18 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .th-h { font-size: 0.78rem; opacity: 0.9; }
 .th-d { font-size: 0.72rem; font-weight: 600; }
 @media (max-width: 640px) { .heat { aspect-ratio: 1 / 1; } }
+
+/* ---------- Credit rating ---------- */
+.credit { font: inherit; font-size: 1.05rem; font-weight: 700; color: var(--amber); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline dotted var(--line-2); text-underline-offset: 4px; }
+.outlook { font-size: 0.75rem; }
+.outlook.positive { color: var(--green); }
+.outlook.negative { color: var(--red); }
+.outlook.stable { color: var(--dim); }
+.cr-head { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.cr-grade { font-size: 2.6rem; font-weight: 700; color: var(--bg); background: var(--amber); padding: 0 12px; line-height: 1.2; }
+.cr-row { display: grid; grid-template-columns: 110px 1fr 70px; gap: 4px 10px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.cr-row .k { font-size: 0.72rem; letter-spacing: 0.08em; color: var(--muted); }
+.cr-row .muted { grid-column: 2 / -1; }
+.cr-track { height: 6px; background: var(--sq-off); }
+.cr-track > div { height: 100%; background: var(--amber); }
+.cr-scale { margin-top: 12px; }
