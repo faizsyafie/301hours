@@ -2,5 +2,8 @@
   "name": "301hours",
   "private": true,
   "type": "module",
-  "description": "CFA study tracker: dashboard, presence-checked Pomodoro timer and curriculum checklist."
+  "description": "CFA study tracker: dashboard, presence-checked Pomodoro timer and curriculum checklist.",
+  "dependencies": {
+    "redis": "4.7.0"
+  }
 }
