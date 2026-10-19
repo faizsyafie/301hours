@@ -54,10 +54,12 @@ export function renderScores(root) {
     const lastMock = mocks[mocks.length - 1];
 
     const byTopic = topics.map((t) => ({ t, ...accuracy(reports.filter((r) => r.topicId === t.id)) }));
+    // Mixed / all-topic reports (most mocks) get their own line.
+    byTopic.push({ t: null, ...accuracy(reports.filter((r) => !r.topicId)) });
     const topicRows = byTopic.map(({ t, total, pct: p }) => `
-      <tr>
-        <td class="tk">${esc(tickerOf(t))}</td>
-        <td class="nm">${esc(t.name)}</td>
+      <tr class="${t ? '' : 'gen-row'}">
+        <td class="tk">${t ? esc(tickerOf(t)) : 'ALL'}</td>
+        <td class="nm">${t ? esc(t.name) : 'Mixed / all topics <span class="muted small">incl. mocks</span>'}</td>
         <td class="num">${total || '—'}</td>
         <td class="bar-cell"><div class="acc-track"><div class="acc-fill ${p === null ? '' : p >= target() ? 'beat' : 'miss'}" style="width:${p ?? 0}%"></div><div class="acc-target" style="left:${target()}%"></div></div></td>
         <td class="num">${p === null ? '—' : `${p.toFixed(1)}%`}</td>

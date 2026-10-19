@@ -4,6 +4,9 @@ import { dayKey, startOfDay } from './util.js';
 
 export const DAY = 86400000;
 
+// Stand-in topic for sessions logged as "GEN · General study".
+export const GENERAL = { id: '', name: 'General study', weight: '', items: [] };
+
 export const levelOf = (t) => t.level || 1;
 
 export function tickerOf(t) {
@@ -85,6 +88,18 @@ export function stats(level = currentLevel()) {
     byDay,
     topics,
     generalSec: byTopic.get('') || 0,
+    // General study (no topic) as its own row. Kept out of `topics` so it
+    // never affects module progress or analyst ratings.
+    general: {
+      topic: GENERAL,
+      ticker: 'GEN',
+      sec: byTopic.get('') || 0,
+      week: byTopicWeek.get('') || 0,
+      prevWeek: byTopicPrevWeek.get('') || 0,
+      done: 0,
+      total: 0,
+      general: true,
+    },
   };
 }
 

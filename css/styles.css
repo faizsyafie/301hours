@@ -457,16 +457,21 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .heat { position: relative; aspect-ratio: 2 / 1; min-height: 220px; }
 .tile-h {
   position: absolute; box-sizing: border-box; border: 2px solid var(--panel); padding: 6px 8px; overflow: hidden;
-  display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; color: #fff; cursor: default;
-  background: color-mix(in srgb, var(--tone) calc(var(--k) * 100%), var(--panel-2));
+  display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; color: var(--text); cursor: default;
+  background: color-mix(in srgb, var(--amber) calc(var(--k) * 100%), var(--panel-2));
 }
-.tile-h.up { --tone: var(--green); }
-.tile-h.down { --tone: var(--red); }
-.tile-h.flat { --tone: var(--line-2); background: var(--panel-2); color: var(--dim); }
+.tile-h.bright { color: var(--bg); }
+.tile-h.empty { color: var(--dim); }
 .tile-h:hover { outline: 1px solid var(--text); z-index: 1; }
 .th-tk { font-weight: 700; font-size: 0.85rem; letter-spacing: 0.04em; }
-.th-h { font-size: 0.78rem; opacity: 0.9; }
-.th-d { font-size: 0.72rem; font-weight: 600; }
+.th-h { font-size: 0.78rem; font-weight: 600; }
+.th-w { font-size: 0.68rem; opacity: 0.85; }
+.th-d { font-size: 0.72rem; font-weight: 600; opacity: 0.9; }
+.heat-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.75rem; }
+.heat-legend { display: flex; align-items: center; gap: 8px; }
+.heat-ramp { width: 120px; height: 8px; background: linear-gradient(to right, color-mix(in srgb, var(--amber) 8%, var(--panel-2)), var(--amber)); }
+.heat-extra { display: flex; gap: 14px; flex-wrap: wrap; color: var(--dim); }
+.heat-extra b { color: var(--amber); }
 @media (max-width: 640px) { .heat { aspect-ratio: 1 / 1; } }
 
 /* ---------- Credit rating ---------- */
@@ -502,3 +507,10 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .ambient-row select { flex: 1; min-width: 150px; }
 .vol { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.06em; }
 .vol input { accent-color: var(--amber); width: 120px; }
+
+/* ---------- General study (GEN) ---------- */
+.watch tr.gen-row { cursor: default; }
+.watch tr.gen-row td { border-top: 1px dashed var(--line-2); }
+.watch tr.gen-row .tk { color: var(--dim); }
+.gen-note { color: var(--dim); margin-left: 6px; }
+.gen-note b { color: var(--amber); }

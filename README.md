@@ -10,12 +10,13 @@ Styled as a trading terminal. Your study hours trade as `$CFA1`, `$CFA2` or `$CF
 - **Topics**: the curriculum for each level as a checklist. Rename, re-ticker, add or delist anything to match your curriculum year. The Level II and III module lists follow the recent curriculum structure; check them against yours.
 - **Milestones**: crossing 10, 25, 50, 100, 150, 200, 250, 300 and 301 hours triggers a breaking-news banner.
 - **Sync**: data is saved in the browser and synced to a small database on Vercel, so it's the same on every device. Protected by a passcode.
+- **General study (GEN)**: time logged without a topic counts towards your totals and shows as its own GEN line in the watchlist, ticker and heatmap, but is never rated against the exam.
 - **Analyst ratings**: each topic's share of your hours vs its share of the exam: UNDERWEIGHT · BUY, MARKET WEIGHT · HOLD or OVERWEIGHT · TRIM, plus a "top pick" to study next.
 - **Earnings**: log question-bank sets and mock exams; each one BEATs or MISSes your target score (70% by default), with accuracy per topic and a mock-exam trend.
 - **Revision schedule**: ticked modules come back for review after 1, 7 and 30 days ("maturing" on the dashboard).
 - **Credit rating**: AAA–CCC from the last 14 days' consistency, daily-target hits, camera-verified share and streak, with upgrade/downgrade alerts.
 - **Weekly 10-K**: a one-page weekly report, also savable as an image.
-- **Heatmap**: topic tiles sized by hours and coloured by week-on-week change.
+- **Heatmap**: the exam as a map. Tiles are sized by exam weight and coloured by hours logged, so a big dark tile is a big part of the exam you haven't covered.
 - **Mini-terminal**: pop the timer out into an always-on-top window (Chrome/Edge; a small window elsewhere).
 - **Focus sounds**: optional brown noise, rain or trading-floor ambience during study blocks.
 - **Installable**: add it to your dock or home screen; it opens offline, and the timer survives a reload.

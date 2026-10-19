@@ -1,5 +1,8 @@
-// Topic heatmap: a treemap of tiles sized by hours studied and coloured by the
-// week-on-week change (green = more than the week before, red = less).
+// Topic heatmap: a treemap shaped like the exam. Each tile's size is the
+// topic's exam weight; its colour is the hours you've logged on it (one amber
+// scale, dark = little, bright = a lot). A big dark tile is a big part of the
+// exam you haven't covered yet. Hours and the 7-day change are written on each
+// tile, so nothing depends on colour alone.
 import { esc } from './util.js';
 import { weightMid } from './ratings.js';
 
@@ -41,31 +44,41 @@ function squarify(items, rect) {
   return out;
 }
 
-export function heatmapPanel(topics) {
-  const totalSec = topics.reduce((a, t) => a + t.sec, 0);
-  const byWeight = totalSec === 0;
-  const items = topics.map((t) => ({
-    t,
-    value: byWeight ? (weightMid(t.topic.weight) || 5) : Math.max(t.sec, totalSec * 0.015),
-    delta: (t.week - t.prevWeek) / 3600,
-  })).sort((a, b) => b.value - a.value);
-  const maxDelta = Math.max(0.5, ...items.map((i) => Math.abs(i.delta)));
+const fmtDelta = (d) => (Math.abs(d) < 0.05 ? '■ 0.0' : `${d > 0 ? '▲ +' : '▼ −'}${Math.abs(d).toFixed(1)}`);
+
+// `general` is the GEN row from stats(). It has no exam weight, so it is listed
+// under the map rather than drawn as a tile.
+export function heatmapPanel(topics, general = null) {
+  const weighted = topics.filter((t) => weightMid(t.topic.weight) !== null);
+  const unweighted = topics.filter((t) => weightMid(t.topic.weight) === null);
+  const maxSec = Math.max(...topics.map((t) => t.sec), 1);
+  const items = weighted.map((t) => ({ t, value: weightMid(t.topic.weight) })).sort((a, b) => b.value - a.value);
+  const weightSum = items.reduce((a, i) => a + i.value, 0) || 1;
   const W = 200, H = 100;
   const tiles = squarify(items, { x: 0, y: 0, w: W, h: H }).map((r) => {
-    const k = Math.min(1, Math.abs(r.delta) / maxDelta);
-    const tone = Math.abs(r.delta) < 0.05 ? 'flat' : r.delta > 0 ? 'up' : 'down';
-    const sign = tone === 'flat' ? '■ 0.0' : `${r.delta > 0 ? '▲ +' : '▼ −'}${Math.abs(r.delta).toFixed(1)}`;
+    const k = r.t.sec / maxSec;
+    const delta = (r.t.week - r.t.prevWeek) / 3600;
     const big = r.w * r.h > 600;
-    return `<div class="tile-h ${tone}" style="left:${(r.x / W) * 100}%;top:${(r.y / H) * 100}%;width:${(r.w / W) * 100}%;height:${(r.h / H) * 100}%;--k:${(0.25 + k * 0.6).toFixed(2)}"
-      title="${esc(r.t.topic.name)} · ${(r.t.sec / 3600).toFixed(1)}h total · ${(r.t.week / 3600).toFixed(1)}h last 7 days (${sign}h vs the 7 before)">
+    const examPct = Math.round((r.value / weightSum) * 100);
+    return `<div class="tile-h${k > 0.55 ? ' bright' : ''}${r.t.sec === 0 ? ' empty' : ''}" style="left:${(r.x / W) * 100}%;top:${(r.y / H) * 100}%;width:${(r.w / W) * 100}%;height:${(r.h / H) * 100}%;--k:${(0.08 + k * 0.92).toFixed(2)}"
+      title="${esc(r.t.topic.name)} · ~${examPct}% of the exam · ${(r.t.sec / 3600).toFixed(1)}h logged · ${fmtDelta(delta)}h last 7 days vs the 7 before">
       <span class="th-tk">${esc(r.t.ticker)}</span>
-      ${big ? `<span class="th-h">${(r.t.sec / 3600).toFixed(1)}H</span>` : ''}
-      <span class="th-d">${sign}</span>
+      <span class="th-h">${(r.t.sec / 3600).toFixed(1)}H</span>
+      ${big ? `<span class="th-w">~${examPct}% OF EXAM</span>` : ''}
+      <span class="th-d">${fmtDelta(delta)}</span>
     </div>`;
   }).join('');
+  const extra = [
+    ...unweighted.map((t) => `<span><b>${esc(t.ticker)}</b> ${(t.sec / 3600).toFixed(1)}H <span class="muted">· no exam weight set</span></span>`),
+    ...(general && general.sec > 0 ? [`<span><b>GEN</b> ${(general.sec / 3600).toFixed(1)}H ${fmtDelta((general.week - general.prevWeek) / 3600)} <span class="muted">· general study, no topic</span></span>`] : []),
+  ];
   return `
     <section class="panel">
-      <div class="phead"><span>HEATMAP</span><span class="muted">${byWeight ? 'SIZED BY EXAM WEIGHT UNTIL YOU LOG HOURS' : 'SIZE = HOURS · COLOUR = 7D CHANGE (H)'}</span></div>
-      <div class="heat">${tiles}</div>
+      <div class="phead"><span>HEATMAP</span><span class="muted">SIZE = EXAM WEIGHT · COLOUR = HOURS LOGGED</span></div>
+      <div class="heat">${tiles || '<p class="note">Set exam weights on your topics to draw the map.</p>'}</div>
+      <div class="heat-foot">
+        <span class="heat-legend"><span class="muted">0H</span><span class="heat-ramp"></span><span class="muted">${(maxSec / 3600).toFixed(1)}H</span></span>
+        ${extra.length ? `<span class="heat-extra">${extra.join('')}</span>` : ''}
+      </div>
     </section>`;
 }

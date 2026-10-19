@@ -225,6 +225,23 @@ function ratingChip(r) {
   return `<span class="rating ${r.cls}" title="${r.target === null ? 'No exam weight set' : `${Math.round(r.share * 100)}% of your hours vs ${Math.round(r.target * 100)}% of the exam`}">${r.icon} ${r.short}</span>`;
 }
 
+// General study: its own line, never rated against the exam.
+function genRow(g, reports, tgt) {
+  const a = accuracy(reports.filter((x) => !x.topicId));
+  return `<tr class="gen-row" title="Study logged as GEN · General study, not tied to a topic. Counts towards your total, not towards any topic or rating.">
+      <td class="tk">GEN</td>
+      <td class="nm">General study <span class="muted small">no topic</span></td>
+      <td class="num">${hours(g.sec, 2)}</td>
+      <td class="num">${hours(g.week, 2)}</td>
+      <td class="num">${arrow((g.week - g.prevWeek) / 3600)}</td>
+      <td class="num muted">—</td>
+      <td></td>
+      <td class="num ${a.pct === null ? 'muted' : a.pct >= tgt ? 'up' : 'down'}" title="Accuracy of mixed / all-topic reports">${a.pct === null ? '—' : `${a.pct.toFixed(0)}%`}</td>
+      <td class="num muted">—</td>
+      <td><span class="rating nr" title="General study isn't rated against the exam">· NR</span></td>
+    </tr>`;
+}
+
 function watchlist(st) {
   const ratings = analystRatings(st.topics);
   const reports = levelScores();
@@ -244,7 +261,7 @@ function watchlist(st) {
       <td class="num muted">${r.target === null ? '—' : `${Math.round(r.share * 100)}/${Math.round(r.target * 100)}%`}</td>
       <td>${ratingChip(r)}</td>
     </tr>`;
-  }).join('');
+  }).join('') + genRow(st.general, reports, tgt);
   const unrated = st.total < ratingMinHours * 3600;
   return `
     <section class="panel">
@@ -308,7 +325,7 @@ export function renderDashboard(root) {
       ${tape(st)}
     </div>
     <div class="row-2 row-2b">
-      ${heatmapPanel(st.topics)}
+      ${heatmapPanel(st.topics, st.general)}
       ${maturing()}
     </div>
     ${watchlist(st)}`;
@@ -348,6 +365,7 @@ export function tickerItems() {
   const exam = examCountdown();
   const items = [`<b>${symbol()}</b> ${totalH.toFixed(2)} ${arrow(st.today / 3600)}`];
   for (const t of st.topics) items.push(`<b>${esc(t.ticker)}</b> ${hours(t.sec, 1)}H ${arrow((t.week - t.prevWeek) / 3600)}`);
+  if (st.general.sec > 0) items.push(`<b>GEN</b> ${hours(st.general.sec, 1)}H ${arrow((st.general.week - st.general.prevWeek) / 3600)}`);
   items.push(`<b>STREAK</b> ${st.streak}D`);
   if (exam && exam.days > 0) items.push(`<b>EXAM</b> T-${exam.days}D`);
   items.push(`<b>TGT</b> ${store.doc.settings.goalHours}H`);
