@@ -296,6 +296,16 @@ export function switchTo(phase) {
   emit();
 }
 
+// Used by "reset progress": stop the clock and forget the current block.
+export function resetTimer() {
+  if (timer.sessionId) flushSession(true);
+  timer.sessionId = '';
+  timer.completed = 0;
+  timer.walkouts = 0;
+  enterPhase('study', false);
+  emit();
+}
+
 export function setTopic(topicId, itemId = '') {
   if (timer.topicId === topicId && timer.itemId === itemId) return;
   if (timer.sessionId) flushSession(true);

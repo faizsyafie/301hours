@@ -529,3 +529,5 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .gen-card .tk { color: var(--dim); }
 .gen-card .name { font-weight: 600; }
 @media (max-width: 640px) { .gen-card { grid-template-columns: 48px minmax(0, 1fr) auto; } .gen-card .muted.small, .gen-card .rating { display: none; } .gen-card .btn { grid-column: 1 / -1; } }
+.danger-zone { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
+.danger-zone .phead > span:first-child { color: var(--red); }

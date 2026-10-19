@@ -2,7 +2,8 @@ import { store, save, sync, subscribe, setPasscode, getPasscode } from './store.
 import { mergeDocs } from '../lib/merge.js';
 import { $, esc, dayKey } from './util.js';
 import { PATHWAYS } from './curriculum.js';
-import { notice } from './dialog.js';
+import { notice, ask } from './dialog.js';
+import { resetProgress } from './reset.js';
 import { isInstalled, isIOS, canPrompt, promptInstall, onInstallChange } from './install.js';
 
 const FIELDS = [
@@ -76,6 +77,17 @@ export function renderSettings(root) {
             <label class="btn">LOAD FILE<input type="file" accept="application/json,.json" name="import" hidden></label>
           </div>
         </section>
+        <section class="panel danger-zone">
+          <div class="phead"><span>RESET PROGRESS</span><span class="muted">CAN'T BE UNDONE · DOWNLOAD A BACKUP FIRST</span></div>
+          <p class="note">Clears logged hours, module ticks and reviews, practice scores, milestones and ratings. Keeps your topic and module names, settings and passcode. Syncs to your other devices.</p>
+          <div class="row">
+            <select name="resetScope">
+              <option value="level">This level only (Level ${['I', 'II', 'III'][(s.level || 1) - 1]})</option>
+              <option value="all">All levels (I, II and III)</option>
+            </select>
+            <button type="button" class="btn danger" data-act="reset">RESET PROGRESS…</button>
+          </div>
+        </section>
       </div>
     </div>`;
 
@@ -119,6 +131,24 @@ export function renderSettings(root) {
     list.innerHTML = '<li class="muted">Checking…</li>';
     const rows = await diagnose();
     list.innerHTML = rows.map(([ok, label, fix]) => `<li class="${ok === true ? 'ok' : ok === false ? 'bad' : 'warn'}"><b>${ok === true ? '✓' : ok === false ? '✗' : '!'}</b> ${esc(label)}${fix ? `<div class="fix">${esc(fix)}</div>` : ''}</li>`).join('');
+  });
+
+  $('[data-act="reset"]', root).addEventListener('click', async () => {
+    const all = $('[name="resetScope"]', root).value === 'all';
+    const level = store.doc.settings.level || 1;
+    const what = all ? 'ALL LEVELS' : `LEVEL ${['I', 'II', 'III'][level - 1]}`;
+    const typed = await ask(`RESET ${what}`, {
+      hint: `This deletes hours, module ticks, reviews, scores, milestones and ratings for ${all ? 'every level' : `Level ${['I', 'II', 'III'][level - 1]}`}. Type RESET to confirm.`,
+      placeholder: 'RESET',
+      okLabel: 'RESET PROGRESS',
+    });
+    if (typed === null) return;
+    if (typed.trim().toUpperCase() !== 'RESET') {
+      await notice('RESET CANCELLED', 'Nothing was changed. Type RESET exactly to confirm.');
+      return;
+    }
+    const n = resetProgress(all ? [1, 2, 3] : [level]);
+    await notice('PROGRESS RESET', `${what}: ${n.sessions} sessions, ${n.modules} module ticks and ${n.scores} score reports cleared. Fresh start.`);
   });
 
   $('[data-act="export"]', root).addEventListener('click', () => {
