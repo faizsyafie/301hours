@@ -52,7 +52,7 @@ export function renderTopics(root, params) {
       <div class="page-head">
         <div>
           <h1>POSITIONS · LEVEL ${ROMAN[level]}</h1>
-          <p class="note">${done}/${total} modules closed out. Tick a module when it's done; it stays ticked on every device.${st.general.sec > 0 ? ` <span class="gen-note">GEN · General study <b>${hours(st.general.sec, 2)}H</b>, not tied to a topic.</span>` : ''}</p>
+          <p class="note">${done}/${total} modules closed out. Tick a module when it's done; it stays ticked on every device.</p>
         </div>
         <div class="row">
           ${level === 3 ? `<label class="inline">PATHWAY <select name="pathway">${Object.entries(PATHWAYS).map(([k, v]) => `<option value="${k}" ${k === pathway ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
@@ -97,6 +97,14 @@ export function renderTopics(root, params) {
             </div>
           </details>`).join('')}
       </div>
+      <section class="panel gen-card">
+        <span class="tk">GEN</span>
+        <span class="name">General study <span class="muted small">no topic · mixed revision, formula sheets, mocks</span></span>
+        <span class="num hrs">${hours(st.general.sec, 2)}H</span>
+        <span class="muted small">7D ${hours(st.general.week, 2)}H</span>
+        <span class="rating nr" title="General study has no exam weight, so it isn't rated">· NR</span>
+        <button type="button" class="btn small" data-act="study-gen">▶ STUDY THIS</button>
+      </section>
       <form class="add-topic panel row">
         <input name="name" placeholder="+ new topic, e.g. Mock exams" required>
         <button class="btn" type="submit">LIST IT</button>
@@ -173,6 +181,11 @@ export function renderTopics(root, params) {
       for (const t of store.doc.topics) act === 'expand' ? open.add(t.id) : open.delete(t.id);
       rememberOpen(open);
       return draw();
+    }
+    if (act === 'study-gen') {
+      setTopic('', '');
+      location.hash = '#/study';
+      return;
     }
     const det = btn.closest('details');
     const topic = det && findTopic(det.dataset.id);

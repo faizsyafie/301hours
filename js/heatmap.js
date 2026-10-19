@@ -51,7 +51,7 @@ const fmtDelta = (d) => (Math.abs(d) < 0.05 ? '■ 0.0' : `${d > 0 ? '▲ +' : '
 export function heatmapPanel(topics, general = null) {
   const weighted = topics.filter((t) => weightMid(t.topic.weight) !== null);
   const unweighted = topics.filter((t) => weightMid(t.topic.weight) === null);
-  const maxSec = Math.max(...topics.map((t) => t.sec), 1);
+  const maxSec = Math.max(...topics.map((t) => t.sec), general?.sec || 0, 1);
   const items = weighted.map((t) => ({ t, value: weightMid(t.topic.weight) })).sort((a, b) => b.value - a.value);
   const weightSum = items.reduce((a, i) => a + i.value, 0) || 1;
   const W = 200, H = 100;
@@ -68,14 +68,24 @@ export function heatmapPanel(topics, general = null) {
       <span class="th-d">${fmtDelta(delta)}</span>
     </div>`;
   }).join('');
-  const extra = [
-    ...unweighted.map((t) => `<span><b>${esc(t.ticker)}</b> ${(t.sec / 3600).toFixed(1)}H <span class="muted">· no exam weight set</span></span>`),
-    ...(general && general.sec > 0 ? [`<span><b>GEN</b> ${(general.sec / 3600).toFixed(1)}H ${fmtDelta((general.week - general.prevWeek) / 3600)} <span class="muted">· general study, no topic</span></span>`] : []),
-  ];
+  const extra = unweighted.map((t) => `<span><b>${esc(t.ticker)}</b> ${(t.sec / 3600).toFixed(1)}H <span class="muted">· no exam weight set</span></span>`);
+  // GEN gets its own tile outside the exam-shaped map (it has no exam weight),
+  // coloured on the same hours scale.
+  const g = general || { sec: 0, week: 0, prevWeek: 0 };
+  const gk = g.sec / maxSec;
+  const genTile = `
+      <div class="tile-h gen-tile${gk > 0.55 ? ' bright' : ''}${g.sec === 0 ? ' empty' : ''}" style="--k:${(0.08 + gk * 0.92).toFixed(2)}"
+        title="General study (no topic) · ${(g.sec / 3600).toFixed(1)}h logged · counts towards your total, not part of the exam weights">
+        <span class="th-tk">GEN</span>
+        <span class="th-h">${(g.sec / 3600).toFixed(1)}H</span>
+        <span class="th-w">GENERAL STUDY · NO TOPIC · NOT IN EXAM WEIGHTS</span>
+        <span class="th-d">${fmtDelta((g.week - g.prevWeek) / 3600)}</span>
+      </div>`;
   return `
     <section class="panel">
       <div class="phead"><span>HEATMAP</span><span class="muted">SIZE = EXAM WEIGHT · COLOUR = HOURS LOGGED</span></div>
       <div class="heat">${tiles || '<p class="note">Set exam weights on your topics to draw the map.</p>'}</div>
+      ${genTile}
       <div class="heat-foot">
         <span class="heat-legend"><span class="muted">0H</span><span class="heat-ramp"></span><span class="muted">${(maxSec / 3600).toFixed(1)}H</span></span>
         ${extra.length ? `<span class="heat-extra">${extra.join('')}</span>` : ''}
