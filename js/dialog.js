@@ -2,13 +2,13 @@
 // rest of the terminal. Each returns a promise.
 import { esc } from './util.js';
 
-function open({ title, body, input, okLabel = 'OK', cancelLabel = 'CANCEL', danger = false }) {
+function open({ title, body, input, okLabel = 'OK', cancelLabel = 'CANCEL', danger = false, wide = false }) {
   const dlg = document.createElement('dialog');
-  dlg.className = 'tdialog';
+  dlg.className = wide ? 'tdialog wide' : 'tdialog';
   dlg.innerHTML = `
     <form method="dialog">
-      <div class="phead"><span>${esc(title)}</span><span class="muted">ESC TO CANCEL</span></div>
-      ${body ? `<p class="tdialog-body">${body}</p>` : ''}
+      <div class="phead"><span>${esc(title)}</span><span class="muted">ESC TO CLOSE</span></div>
+      ${body ? `<div class="tdialog-body">${body}</div>` : ''}
       ${input ? `<label class="tdialog-field"><span class="prompt-caret">&gt;</span><input name="value" autocomplete="off" spellcheck="false"></label><p class="tdialog-hint muted small">${esc(input.hint || '')}</p>` : ''}
       <div class="row end">
         ${cancelLabel ? `<button value="cancel" formnovalidate class="btn">${esc(cancelLabel)}</button>` : ''}
@@ -55,4 +55,9 @@ export async function confirmBox(title, message, { okLabel = 'CONFIRM', danger =
 
 export async function notice(title, message) {
   await open({ title, body: esc(message), okLabel: 'OK', cancelLabel: '' });
+}
+
+// A read-only panel with trusted HTML content (e.g. the About screen).
+export async function panel(title, html, { okLabel = 'CLOSE', wide = true } = {}) {
+  await open({ title, body: html, okLabel, cancelLabel: '', wide });
 }
