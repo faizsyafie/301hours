@@ -3,6 +3,7 @@
 import { store, save } from './store.js';
 import { isPresent, onPresence } from './presence.js';
 import { uid } from './util.js';
+import { play } from './sounds.js';
 
 const TICK_MS = 250;
 // Ignore clock jumps larger than this (laptop sleep etc.).
@@ -18,6 +19,7 @@ export const timer = {
   elapsedMs: 0,        // counted time in the current phase
   awayMs: 0,           // time paused because nobody was in frame (this block)
   completed: 0,        // study blocks finished since the page was opened
+  walkouts: 0,         // times the clock halted because you left the frame
   counting: false,     // whether the clock is currently advancing
   topicId: '',
   itemId: '',
@@ -57,6 +59,7 @@ function openSession(now) {
     id: uid(),
     topicId: timer.topicId,
     itemId: timer.itemId,
+    level: settings().level || 1,
     start: now,
     end: now,
     sec: 0,
@@ -84,6 +87,11 @@ function flushSession(close) {
   save({ immediate: close });
 }
 
+function setCounting(on) {
+  if (timer.counting && !on && timer.running && timer.phase === 'study' && settings().presence) timer.walkouts += 1;
+  timer.counting = on;
+}
+
 function tick() {
   const now = Date.now();
   const step = Math.min(now - lastTick, MAX_STEP_MS);
@@ -91,7 +99,7 @@ function tick() {
   if (!timer.running) return;
 
   if (timer.phase === 'study') {
-    timer.counting = !settings().presence || isPresent(settings().graceSec);
+    setCounting(!settings().presence || isPresent(settings().graceSec));
     if (timer.counting) {
       const s = currentSession() || openSession(now);
       timer.elapsedMs += step;
@@ -114,23 +122,7 @@ function tick() {
 setInterval(tick, TICK_MS);
 
 function chime(kind) {
-  if (!settings().sound) return;
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const notes = kind === 'study' ? [660, 880] : [880, 660, 523];
-    notes.forEach((f, i) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.22);
-      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + i * 0.22 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.22 + 0.5);
-      o.connect(g).connect(ctx.destination);
-      o.start(ctx.currentTime + i * 0.22);
-      o.stop(ctx.currentTime + i * 0.22 + 0.55);
-    });
-    setTimeout(() => ctx.close(), 2000);
-  } catch { /* audio unavailable */ }
+  if (settings().sound) play(kind);
 }
 
 function notify(title, body) {
@@ -154,18 +146,19 @@ function finishPhase() {
     timer.completed += 1;
     const long = timer.completed % settings().longEvery === 0;
     enterPhase(long ? 'long' : 'short', settings().autoStartBreak);
-    chime('break');
-    notify('Block done', long ? 'Time for a long break.' : 'Take a short break.');
+    chime('register');
+    notify('Block banked', long ? 'Market closed. Long break.' : 'Market closed. Short break.');
   } else {
     enterPhase('study', false);
-    chime('study');
-    notify('Break over', 'Back to the books - press Start when you are ready.');
+    chime('close');
+    notify('Break over', 'Pre-market. Open when you\'re back at the desk.');
   }
 }
 
 export function start() {
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
   lastTick = Date.now();
+  if (timer.phase === 'study' && !timer.elapsedMs) chime('open');
   timer.running = true;
   emit();
 }
@@ -207,7 +200,7 @@ export function setTopic(topicId, itemId = '') {
 // Re-evaluate on every detection result so the UI reacts immediately.
 onPresence(() => {
   if (timer.running && timer.phase === 'study') {
-    timer.counting = !settings().presence || isPresent(settings().graceSec);
+    setCounting(!settings().presence || isPresent(settings().graceSec));
     emit();
   }
 });

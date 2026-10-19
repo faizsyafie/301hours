@@ -2,10 +2,15 @@
 
 A study tracker and dashboard for CFA candidates. Log at least 300 hours, maybe even 301.
 
-- **Dashboard** (home page): total hours against your goal, the daily pace you need to reach it by exam day, today/week/streak, a 30-day chart, and hours and modules done per topic.
-- **Study**: a Pomodoro timer with a camera presence check. Study time only counts while you're in frame. Step away and the clock pauses until you're back. Breaks don't need the camera.
-- **Topics**: the CFA Level I curriculum (10 topic areas, 93 learning modules) as a checklist. Rename, add or delete anything to match your level and curriculum year.
+Styled as a trading terminal. Your study hours trade as `$CFA1`, `$CFA2` or `$CFA3`.
+
+- **Dashboard** (home page): hours banked against your target, the hours per day you need before exam day, a grid of 301 squares (one per hour) with milestones, a 30-day price chart (cumulative hours) with daily volume, a time & sales tape of recent sessions, and a watchlist of topics with week-on-week change.
+- **Levels**: switch between CFA Level I, II and III in the header. Each level has its own topics, hours and grid. For Level III, pick your pathway (Portfolio Management, Private Wealth or Private Markets) in Topics or Setup.
+- **Study**: a Pomodoro timer with a desk cam. The market is open while you're in frame. Walk away and trading halts until you're back. Breaks don't need the camera. Keys: `Space` open/halt, `S` skip, `R` reset.
+- **Topics**: the curriculum for each level as a checklist. Rename, re-ticker, add or delist anything to match your curriculum year. The Level II and III module lists follow the recent curriculum structure; check them against yours.
+- **Milestones**: crossing 10, 25, 50, 100, 150, 200, 250, 300 and 301 hours triggers a breaking-news banner.
 - **Sync**: data is saved in the browser and synced to a small database on Vercel, so it's the same on every device. Protected by a passcode.
+- **Navigation**: keys `1`–`4` switch between Dashboard, Study, Topics and Setup.
 
 ## How the presence check works
 
@@ -49,7 +54,9 @@ js/presence.js    webcam + person detection
 js/topics.js      curriculum checklist
 js/settings.js    settings, sync, backup
 js/store.js       local storage + sync with /api/data
-js/curriculum.js  default CFA Level I topics and settings
+js/curriculum.js  default CFA Level I-III topics, milestones and settings
+js/model.js       per-level stats (hours, streaks, tickers)
+js/sounds.js      synthesized bell, register and news-flash sounds
 lib/merge.js      merges two copies of the data (shared by browser and API)
 api/data.js       Vercel function: GET/PUT the data in Upstash Redis
 ```

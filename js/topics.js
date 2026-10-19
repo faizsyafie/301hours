@@ -1,9 +1,11 @@
 import { store, save } from './store.js';
 import { setTopic } from './timer.js';
-import { topicStats } from './dashboard.js';
-import { $, esc, uid, hours, shortDate } from './util.js';
+import { stats, currentLevel } from './model.js';
+import { PATHWAYS } from './curriculum.js';
+import { esc, uid, hours, shortDate } from './util.js';
 
 const OPEN_KEY = '301hours:openTopics';
+const ROMAN = { 1: 'I', 2: 'II', 3: 'III' };
 
 function openSet() {
   try { return new Set(JSON.parse(localStorage.getItem(OPEN_KEY)) || []); } catch { return new Set(); }
@@ -26,40 +28,40 @@ export function renderTopics(root, params) {
   if (params.get('open')) { open.add(params.get('open')); rememberOpen(open); }
 
   function draw() {
-    const stats = topicStats();
-    const done = stats.reduce((a, s) => a + s.done, 0);
-    const total = stats.reduce((a, s) => a + s.total, 0);
+    const st = stats();
+    const level = currentLevel();
+    const done = st.topics.reduce((a, t) => a + t.done, 0);
+    const total = st.topics.reduce((a, t) => a + t.total, 0);
+    const pathway = store.doc.settings.pathway;
 
     root.innerHTML = `
       <div class="page-head">
         <div>
-          <h1>Topics</h1>
-          <p class="muted">${done} of ${total} modules done. Tick a module when you've finished it; it stays ticked on every device.</p>
+          <h1>POSITIONS · LEVEL ${ROMAN[level]}</h1>
+          <p class="note">${done}/${total} modules closed out. Tick a module when it's done; it stays ticked on every device.</p>
         </div>
         <div class="row">
-          <button type="button" class="btn ghost" data-act="expand">Expand all</button>
-          <button type="button" class="btn ghost" data-act="collapse">Collapse all</button>
+          ${level === 3 ? `<label class="inline">PATHWAY <select name="pathway">${Object.entries(PATHWAYS).map(([k, v]) => `<option value="${k}" ${k === pathway ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
+          <button type="button" class="btn" data-act="expand">EXPAND ALL</button>
+          <button type="button" class="btn" data-act="collapse">COLLAPSE ALL</button>
         </div>
       </div>
       <div class="topics">
-        ${stats.map(({ topic, sec, done: d, total: n }) => `
-          <details class="topic card" data-id="${esc(topic.id)}" ${open.has(topic.id) ? 'open' : ''}>
+        ${st.topics.map(({ topic, ticker, sec, done: d, total: n }) => `
+          <details class="topic panel" data-id="${esc(topic.id)}" ${open.has(topic.id) ? 'open' : ''}>
             <summary>
-              <div class="topic-title">
-                <span class="name">${esc(topic.name)}</span>
-                ${topic.weight ? `<span class="weight">${esc(topic.weight)}</span>` : ''}
-              </div>
-              <div class="topic-meta">
-                <span class="num">${hours(sec)}h</span>
-                <div class="meter"><div style="width:${n ? (d / n) * 100 : 0}%"></div></div>
-                <span class="num">${d}/${n}</span>
-              </div>
+              <span class="tk">${esc(ticker)}</span>
+              <span class="name">${esc(topic.name)}</span>
+              <span class="muted wgt">${esc(topic.weight || '')}</span>
+              <span class="num hrs">${hours(sec, 2)}H</span>
+              <span class="meter"><span style="width:${n ? (d / n) * 100 : 0}%"></span></span>
+              <span class="num cnt">${d}/${n}</span>
             </summary>
             <ul class="modules">
-              ${topic.items.filter((i) => !i.deleted).map((i) => `
+              ${topic.items.filter((i) => !i.deleted).map((i, idx) => `
                 <li data-item="${esc(i.id)}" class="${i.done ? 'done' : ''}">
-                  <label class="check"><input type="checkbox" ${i.done ? 'checked' : ''}><span>${esc(i.name)}</span></label>
-                  <span class="muted small">${i.done && i.doneAt ? shortDate(i.doneAt) : ''}</span>
+                  <label class="check"><input type="checkbox" ${i.done ? 'checked' : ''}><span class="idx">${String(idx + 1).padStart(2, '0')}</span><span>${esc(i.name)}</span></label>
+                  <span class="muted small">${i.done && i.doneAt ? `CLOSED ${shortDate(i.doneAt).toUpperCase()}` : ''}</span>
                   <span class="actions">
                     <button type="button" class="icon" data-act="study-item" title="Study this module">▶</button>
                     <button type="button" class="icon" data-act="rename-item" title="Rename">✎</button>
@@ -68,20 +70,21 @@ export function renderTopics(root, params) {
                 </li>`).join('')}
             </ul>
             <form class="add-item row">
-              <input name="name" placeholder="Add a module, reading or practice set…" required>
-              <button class="btn" type="submit">Add</button>
+              <input name="name" placeholder="+ add a module, reading or practice set" required>
+              <button class="btn" type="submit">ADD</button>
             </form>
             <div class="topic-actions row">
-              <button type="button" class="btn ghost small" data-act="study-topic">Study this topic</button>
-              <button type="button" class="btn ghost small" data-act="rename-topic">Rename</button>
-              <button type="button" class="btn ghost small" data-act="weight-topic">Edit weight</button>
-              <button type="button" class="btn ghost small danger" data-act="delete-topic">Delete topic</button>
+              <button type="button" class="btn small" data-act="study-topic">▶ STUDY THIS</button>
+              <button type="button" class="btn small" data-act="rename-topic">RENAME</button>
+              <button type="button" class="btn small" data-act="ticker-topic">TICKER</button>
+              <button type="button" class="btn small" data-act="weight-topic">WEIGHT</button>
+              <button type="button" class="btn small danger" data-act="delete-topic">DELIST</button>
             </div>
           </details>`).join('')}
       </div>
-      <form class="add-topic card row">
-        <input name="name" placeholder="New topic (e.g. Mock exams)" required>
-        <button class="btn" type="submit">Add topic</button>
+      <form class="add-topic panel row">
+        <input name="name" placeholder="+ new topic, e.g. Mock exams" required>
+        <button class="btn" type="submit">LIST IT</button>
       </form>`;
   }
 
@@ -95,6 +98,12 @@ export function renderTopics(root, params) {
   }, true);
 
   root.addEventListener('change', (e) => {
+    if (e.target.name === 'pathway') {
+      store.doc.settings.pathway = e.target.value;
+      touch(store.doc.settings);
+      save();
+      return draw();
+    }
     if (e.target.type !== 'checkbox') return;
     const li = e.target.closest('li[data-item]');
     const topic = findTopic(e.target.closest('details').dataset.id);
@@ -113,7 +122,8 @@ export function renderTopics(root, params) {
     if (e.target.classList.contains('add-topic')) {
       const o = Math.max(0, ...store.doc.topics.map((t) => t.o ?? 0)) + 1;
       const id = uid();
-      store.doc.topics.push({ id, name, weight: '', o, u: Date.now(), items: [] });
+      const level = currentLevel();
+      store.doc.topics.push({ id, name, weight: '', level, pathway: '', o, u: Date.now(), items: [] });
       open.add(id);
       rememberOpen(open);
     } else {
@@ -150,6 +160,11 @@ export function renderTopics(root, params) {
       if (!name) return;
       target.name = name;
       touch(target);
+    } else if (act === 'ticker-topic') {
+      const t = prompt('Ticker (up to 5 letters)', topic.ticker || '')?.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+      if (!t) return;
+      topic.ticker = t;
+      touch(topic);
     } else if (act === 'weight-topic') {
       const w = prompt('Exam weight (e.g. 10–15%)', topic.weight || '');
       if (w === null) return;
@@ -160,7 +175,7 @@ export function renderTopics(root, params) {
       item.deleted = true;
       touch(item);
     } else if (act === 'delete-topic') {
-      if (!confirm(`Delete the topic "${topic.name}" and its modules? Study time already logged is kept.`)) return;
+      if (!confirm(`Delist "${topic.name}" and its modules? Hours already logged are kept.`)) return;
       topic.deleted = true;
       touch(topic);
     } else {

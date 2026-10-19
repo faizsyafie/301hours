@@ -1,9 +1,11 @@
-import { store, load, subscribe, sync, setPasscode } from './store.js';
-import { timer, onTimer, remainingSec } from './timer.js';
-import { renderDashboard } from './dashboard.js';
+import { store, load, subscribe, sync, save, setPasscode } from './store.js';
+import { timer, onTimer, remainingSec, setTopic } from './timer.js';
+import { renderDashboard, tickerItems, milestonesFor, symbol } from './dashboard.js';
 import { renderStudy } from './study.js';
 import { renderTopics } from './topics.js';
 import { renderSettings } from './settings.js';
+import { stats, currentLevel } from './model.js';
+import { play } from './sounds.js';
 import { $, $$, clock } from './util.js';
 import { video } from './presence.js';
 
@@ -13,6 +15,7 @@ const ROUTES = {
   topics: ['topics', renderTopics],
   settings: ['settings', renderSettings],
 };
+const KEYS = { 1: '#/', 2: '#/study', 3: '#/topics', 4: '#/settings' };
 
 let cleanup = null;
 let current = '';
@@ -29,11 +32,11 @@ function route() {
   current = name;
   cleanup = render(view, new URLSearchParams(query || ''));
   $$('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.route === name));
-  document.title = name === 'dashboard' ? '301hours' : `${name[0].toUpperCase()}${name.slice(1)} · 301hours`;
-  updateMiniTimer();
+  document.title = name === 'dashboard' ? `${symbol()} · 301 TERMINAL` : `${name.toUpperCase()} · 301 TERMINAL`;
+  updateHeader();
 }
 
-const SYNC_LABEL = { synced: 'Synced', syncing: 'Syncing…', offline: 'Offline', locked: 'Locked', local: 'This device only' };
+const SYNC_LABEL = { synced: 'SYNCED', syncing: 'SYNCING', offline: 'OFFLINE', locked: 'LOCKED', local: 'LOCAL' };
 
 function updateSync() {
   const btn = $('.sync');
@@ -44,8 +47,14 @@ function updateSync() {
   const show = store.status === 'locked' || (store.status === 'local' && store.message);
   banner.hidden = !show;
   if (show) banner.innerHTML = store.status === 'locked'
-    ? 'Sync is locked. <button type="button" class="link" data-unlock>Enter passcode</button> to load your data from other devices.'
-    : `${store.message} <a href="https://github.com/faizsyafie/301hours#deploying-to-vercel" target="_blank" rel="noopener">Setup guide</a>`;
+    ? 'SYNC LOCKED. <button type="button" class="link" data-unlock>ENTER PASSCODE</button> to load your data from other devices.'
+    : `${store.message} <a href="https://github.com/faizsyafie/301hours#deploying-to-vercel" target="_blank" rel="noopener">SETUP GUIDE</a>`;
+}
+
+function updateHeader() {
+  const level = currentLevel();
+  $$('.levels button').forEach((b) => b.setAttribute('aria-checked', String(Number(b.dataset.level) === level)));
+  updateMiniTimer();
 }
 
 function updateMiniTimer() {
@@ -53,15 +62,68 @@ function updateMiniTimer() {
   const show = current !== 'study' && (timer.running || timer.elapsedMs > 0);
   pill.hidden = !show;
   if (!show) return;
-  const label = timer.phase === 'study' ? (timer.running ? (timer.counting ? 'Studying' : 'Away') : 'Paused') : 'Break';
+  const label = timer.phase === 'study' ? (timer.running ? (timer.counting ? 'OPEN' : 'HALT') : 'PAUSED') : 'BREAK';
   pill.textContent = `${label} ${clock(remainingSec())}`;
   pill.dataset.state = timer.phase !== 'study' ? 'break' : timer.running && timer.counting ? 'on' : 'away';
 }
 
+// ---------- Ticker tape ----------
+let lastTape = '';
+function updateTape() {
+  const html = tickerItems().map((i) => `<span class="ti">${i}</span>`).join('');
+  if (html === lastTape) return;
+  lastTape = html;
+  // Two copies side by side so the scroll loops seamlessly.
+  $('.tape-track').innerHTML = `<div class="tape-run">${html}</div><div class="tape-run">${html}</div>`;
+}
+
+// ---------- Milestones ----------
+function checkMilestones() {
+  const s = store.doc.settings;
+  const level = currentLevel();
+  const totalH = stats(level).total / 3600;
+  const seen = new Set(s.celebrated || []);
+  const fresh = milestonesFor(Math.round(s.goalHours)).filter(([h]) => totalH >= h && !seen.has(`${level}:${h}`));
+  if (!fresh.length) return;
+  s.celebrated = [...seen, ...fresh.map(([h]) => `${level}:${h}`)];
+  s.u = Date.now();
+  save();
+  const [h, headline] = fresh[fresh.length - 1];
+  breaking(h, headline);
+}
+
+function breaking(h, headline) {
+  const el = $('.breaking');
+  el.innerHTML = `
+    <span class="flash">BREAKING</span>
+    <span class="headline"><b>${symbol()} HITS ${h}H</b> — ${headline}</span>
+    <button type="button" class="btn small" data-dismiss>DISMISS</button>`;
+  el.hidden = false;
+  if (store.doc.settings.sound) play('breaking');
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) rain();
+  el.querySelector('[data-dismiss]').addEventListener('click', () => { el.hidden = true; });
+}
+
+function rain() {
+  const box = document.createElement('div');
+  box.className = 'rain';
+  for (let i = 0; i < 60; i++) {
+    const c = document.createElement('span');
+    c.textContent = ['$', '▲', '301', '$', '+'][i % 5];
+    c.style.left = `${Math.random() * 100}%`;
+    c.style.animationDelay = `${Math.random() * 1.2}s`;
+    c.style.animationDuration = `${2 + Math.random() * 2}s`;
+    c.style.fontSize = `${12 + Math.random() * 18}px`;
+    box.append(c);
+  }
+  document.body.append(box);
+  setTimeout(() => box.remove(), 5000);
+}
+
+// ---------- Passcode ----------
 function askPasscode() {
   const dlg = $('#passcode-dialog');
-  const err = $('.error', dlg);
-  err.hidden = true;
+  $('.error', dlg).hidden = true;
   dlg.querySelector('input').value = '';
   dlg.showModal();
 }
@@ -72,34 +134,64 @@ $('#passcode-dialog').addEventListener('close', async (e) => {
   setPasscode(dlg.querySelector('input').value);
   await sync();
   if (store.status === 'locked') {
-    $('.error', dlg).textContent = 'That passcode didn\'t work.';
+    $('.error', dlg).textContent = 'ACCESS DENIED. WRONG PASSCODE.';
     $('.error', dlg).hidden = false;
     dlg.showModal();
   }
 });
 
+// ---------- Global events ----------
 document.addEventListener('click', (e) => {
+  const lvl = e.target.closest('.levels button');
+  if (lvl) {
+    const level = Number(lvl.dataset.level);
+    if (level === currentLevel()) return;
+    store.doc.settings.level = level;
+    store.doc.settings.u = Date.now();
+    setTopic('', '');
+    save();
+    return;
+  }
   if (e.target.closest('[data-unlock]') || (e.target.closest('.sync') && store.status === 'locked')) askPasscode();
   else if (e.target.closest('.sync')) sync();
 });
 
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input, select, textarea, dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (KEYS[e.key]) location.hash = KEYS[e.key];
+});
+
 let lastStatus = null;
-let lastDocStamp = 0;
+let lastStamp = 0;
+let lastLevel = 0;
 subscribe(() => {
   updateSync();
   if (store.status === 'locked' && lastStatus !== 'locked') askPasscode();
   lastStatus = store.status;
-  // Fresh data from another device: refresh read-only views.
-  if (store.doc.updatedAt !== lastDocStamp && current === 'dashboard') {
-    lastDocStamp = store.doc.updatedAt;
+  const level = currentLevel();
+  if (level !== lastLevel) {
+    // Level switched (here or on another device): redraw whatever is open.
+    lastLevel = level;
+    lastTape = '';
+    route();
+  } else if (store.doc.updatedAt !== lastStamp && current === 'dashboard') {
     route();
   }
+  lastStamp = store.doc.updatedAt;
+  updateTape();
+  checkMilestones();
 });
 
 onTimer(updateMiniTimer);
 window.addEventListener('hashchange', route);
 
+const tick = () => { $('.clock').textContent = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }); };
+tick();
+setInterval(tick, 1000);
+
 $('#cam-holder').append(video);
 load(); // reads this browser's copy synchronously, then syncs in the background
-lastDocStamp = store.doc.updatedAt;
+lastStamp = store.doc.updatedAt;
+lastLevel = currentLevel();
 route();
+updateTape();
