@@ -1,6 +1,8 @@
 import { store } from './store.js';
 import { stats, hourStamps, examCountdown, currentLevel, tickerOf, DAY } from './model.js';
 import { MILESTONES } from './curriculum.js';
+import { analystRatings, topPick, ratingMinHours } from './ratings.js';
+import { setTopic } from './timer.js';
 import { esc, hours, duration, dayKey, startOfDay, shortDate, timeOfDay } from './util.js';
 
 const CHART_DAYS = 30;
@@ -21,6 +23,14 @@ export function milestonesFor(goal) {
   const list = MILESTONES.filter(([h]) => h <= goal);
   if (!list.some(([h]) => h === goal)) list.push([goal, `${goal} HOURS. TARGET HIT. ALL-TIME HIGH.`]);
   return list;
+}
+
+function pickLine(st) {
+  const ratings = analystRatings(st.topics);
+  const pick = topPick(st.topics, ratings);
+  if (!pick) return '';
+  const r = ratings.get(pick.topic.id);
+  return `<a class="top-pick" href="#/study" data-pick="${esc(pick.topic.id)}" title="Study ${esc(pick.topic.name)} next">TOP PICK <b>${esc(pick.ticker)}</b> <span class="rating buy">▲ BUY</span> <span class="muted">${Math.round(r.share * 100)}% of hours vs ${Math.round(r.target * 100)}% of exam</span></a>`;
 }
 
 function quote(st) {
@@ -46,7 +56,10 @@ function quote(st) {
           <span class="chg">${arrow(todayH)} <span class="muted">(${todayH > 0 && prev > 0 ? signed(pct, 1) + '%' : todayH > 0 ? 'IPO' : '0.0%'}) TODAY</span></span>
         </div>
       </div>
-      <a class="btn primary big" href="#/study">OPEN MARKET ▸</a>
+      <div class="quote-side">
+        <a class="btn primary big" href="#/study">OPEN MARKET ▸</a>
+        ${pickLine(st)}
+      </div>
       <div class="qstrip">
         ${cell('TGT', s.goalHours.toFixed(2))}
         ${cell('REM', remaining.toFixed(2))}
@@ -185,9 +198,15 @@ function chartTable(days) {
   }</tbody></table></details>`;
 }
 
+function ratingChip(r) {
+  return `<span class="rating ${r.cls}" title="${r.target === null ? 'No exam weight set' : `${Math.round(r.share * 100)}% of your hours vs ${Math.round(r.target * 100)}% of the exam`}">${r.icon} ${r.short}</span>`;
+}
+
 function watchlist(st) {
+  const ratings = analystRatings(st.topics);
   const rows = st.topics.map((t) => {
     const chg = (t.week - t.prevWeek) / 3600;
+    const r = ratings.get(t.topic.id);
     return `<tr data-href="#/topics?open=${encodeURIComponent(t.topic.id)}" tabindex="0">
       <td class="tk">${esc(t.ticker)}</td>
       <td class="nm">${esc(t.topic.name)}</td>
@@ -196,14 +215,16 @@ function watchlist(st) {
       <td class="num">${arrow(chg)}</td>
       <td class="num">${t.done}/${t.total}</td>
       <td class="bar-cell"><div class="meter"><div style="width:${t.total ? (t.done / t.total) * 100 : 0}%"></div></div></td>
-      <td class="num muted">${esc(t.topic.weight || '')}</td>
+      <td class="num muted">${r.target === null ? '—' : `${Math.round(r.share * 100)}/${Math.round(r.target * 100)}%`}</td>
+      <td>${ratingChip(r)}</td>
     </tr>`;
   }).join('');
+  const unrated = st.total < ratingMinHours * 3600;
   return `
     <section class="panel">
-      <div class="phead"><span>WATCHLIST · LEVEL ${ROMAN[currentLevel()]}</span><span class="muted">7D CHG = LAST 7 DAYS VS THE 7 BEFORE</span></div>
+      <div class="phead"><span>WATCHLIST · LEVEL ${ROMAN[currentLevel()]}</span><span class="muted">${unrated ? `RATINGS START AFTER ${ratingMinHours}H BANKED` : 'MIX = YOUR SHARE OF HOURS / SHARE OF THE EXAM'}</span></div>
       <div class="table-wrap"><table class="watch">
-        <thead><tr><th>TKR</th><th>TOPIC</th><th class="num">HRS</th><th class="num">7D</th><th class="num">7D CHG</th><th class="num">MODS</th><th>DONE</th><th class="num">WGT</th></tr></thead>
+        <thead><tr><th>TKR</th><th>TOPIC</th><th class="num">HRS</th><th class="num">7D</th><th class="num">7D CHG</th><th class="num">MODS</th><th>DONE</th><th class="num">MIX</th><th>RATING</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </section>`;
@@ -257,6 +278,8 @@ export function renderDashboard(root) {
     tr.addEventListener('click', go);
     tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
   });
+
+  root.querySelector('[data-pick]')?.addEventListener('click', (e) => setTopic(e.currentTarget.dataset.pick, ''));
 
   return () => ro.disconnect();
 }

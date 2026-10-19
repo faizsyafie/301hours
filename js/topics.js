@@ -1,7 +1,8 @@
-import { store, save } from './store.js';
+import { store, save, subscribe } from './store.js';
 import { setTopic } from './timer.js';
 import { stats, currentLevel, tickerOf } from './model.js';
 import { PATHWAYS } from './curriculum.js';
+import { analystRatings } from './ratings.js';
 import { esc, uid, hours, shortDate } from './util.js';
 import { ask, confirmBox } from './dialog.js';
 
@@ -34,6 +35,7 @@ export function renderTopics(root, params) {
     const done = st.topics.reduce((a, t) => a + t.done, 0);
     const total = st.topics.reduce((a, t) => a + t.total, 0);
     const pathway = store.doc.settings.pathway;
+    const ratings = analystRatings(st.topics);
 
     root.innerHTML = `
       <div class="page-head">
@@ -53,7 +55,7 @@ export function renderTopics(root, params) {
             <summary>
               <span class="tk">${esc(ticker)}</span>
               <span class="name">${esc(topic.name)}</span>
-              <span class="muted wgt">${esc(topic.weight || '')}</span>
+              <span class="muted wgt">${esc(topic.weight || '')} <span class="rating ${ratings.get(topic.id).cls}">${ratings.get(topic.id).icon} ${ratings.get(topic.id).short}</span></span>
               <span class="num hrs">${hours(sec, 2)}H</span>
               <span class="meter"><span style="width:${n ? (d / n) * 100 : 0}%"></span></span>
               <span class="num cnt">${d}/${n}</span>
@@ -90,6 +92,13 @@ export function renderTopics(root, params) {
   }
 
   draw();
+  // Redraw when synced data arrives, unless you're typing in one of the fields.
+  let stamp = store.doc.updatedAt;
+  const offSync = subscribe(() => {
+    if (store.doc.updatedAt === stamp) return;
+    stamp = store.doc.updatedAt;
+    if (!root.contains(document.activeElement) || document.activeElement.tagName !== 'INPUT') draw();
+  });
 
   root.addEventListener('toggle', (e) => {
     const det = e.target.closest?.('details.topic');
@@ -191,4 +200,5 @@ export function renderTopics(root, params) {
     save();
     draw();
   });
+  return offSync;
 }

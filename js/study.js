@@ -1,8 +1,9 @@
-import { store, save } from './store.js';
+import { store, save, subscribe } from './store.js';
 import { timer, onTimer, toggle, skip, restart, switchTo, setTopic, phaseLengthSec, remainingSec } from './timer.js';
 import { openMini, miniMode } from './pip.js';
 import { presence, onPresence, startCamera, stopCamera, isPresent, video } from './presence.js';
-import { levelTopics, currentLevel, sessionLevel, tickerOf } from './model.js';
+import { levelTopics, currentLevel, sessionLevel, tickerOf, stats } from './model.js';
+import { analystRatings, topPick } from './ratings.js';
 import { $, esc, clock, duration, uid, dayKey, startOfDay } from './util.js';
 
 const PHASES = { study: 'STUDY', short: 'BREAK', long: 'LONG BREAK' };
@@ -60,6 +61,7 @@ export function renderStudy(root) {
           <label>TOPIC<select name="topic">${topicOptions(timer.topicId)}</select></label>
           <label>MODULE<select name="item">${moduleOptions(timer.topicId)}</select></label>
         </div>
+        <div class="pick-row"></div>
         <div class="kv-row">
           <div><span class="k">TODAY</span><span class="v today"></span></div>
           <div><span class="k">BLOCKS</span><span class="v blocks"></span></div>
@@ -127,6 +129,22 @@ export function renderStudy(root) {
     itemSel.disabled = !topicSel.value;
   });
   itemSel.disabled = !timer.topicId;
+
+  // Analyst pick: the most underweight topic, one click to study it.
+  const showPick = () => {
+    const st = stats();
+    const ratings = analystRatings(st.topics);
+    const pick = topPick(st.topics, ratings);
+    const row = $('.pick-row', root);
+    if (!pick || pick.topic.id === timer.topicId || timer.phase !== 'study') { row.innerHTML = ''; return; }
+    row.innerHTML = `<span class="muted">ANALYST PICK</span> <b class="tk">${esc(pick.ticker)}</b> <span class="rating buy">▲ BUY</span> <span class="muted">underweight vs the exam</span> <button type="button" class="btn small" data-act="use-pick">STUDY ${esc(pick.ticker)}</button>`;
+    $('[data-act="use-pick"]', row).addEventListener('click', () => {
+      topicSel.value = pick.topic.id;
+      topicSel.dispatchEvent(new Event('change'));
+    });
+  };
+  showPick();
+  topicSel.addEventListener('change', showPick);
   itemSel.addEventListener('change', () => setTopic(topicSel.value, itemSel.value));
 
   $('[name="presence"]', root).addEventListener('change', (e) => {
@@ -234,7 +252,8 @@ export function renderStudy(root) {
   }
 
   update();
-  const offs = [onTimer(update), onPresence(update)];
+  let lastPhase = timer.phase;
+  const offs = [onTimer(update), onPresence(update), subscribe(showPick), onTimer(() => { if (timer.phase !== lastPhase) { lastPhase = timer.phase; showPick(); } })];
   return () => {
     offs.forEach((off) => off());
     document.removeEventListener('keydown', onKey);

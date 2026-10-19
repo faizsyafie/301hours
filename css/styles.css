@@ -266,7 +266,7 @@ table.watch, table.tape { width: 100%; border-collapse: collapse; font-size: 0.8
 /* ---------- Topics ---------- */
 .topic { padding: 0; }
 .topic > summary {
-  display: grid; grid-template-columns: 56px minmax(0, 1fr) 70px 80px 140px 52px; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) 150px 80px 140px 52px; gap: 12px; align-items: center;
   padding: 10px 14px; cursor: pointer; list-style: none;
 }
 .topic > summary::-webkit-details-marker { display: none; }
@@ -403,3 +403,17 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
 .mini-ctl { display: flex; gap: 6px; margin-top: auto; }
 .mini-ctl .btn { flex: 1; padding: 6px 8px; }
 .mini-ctl .btn.primary { background: var(--phase); border-color: var(--phase); }
+
+/* ---------- Analyst ratings ---------- */
+.rating { display: inline-block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; padding: 0 6px; border: 1px solid currentColor; white-space: nowrap; }
+.rating.buy { color: var(--green); }
+.rating.hold { color: var(--dim); }
+.rating.trim { color: var(--amber); }
+.rating.nr { color: var(--muted); border-color: var(--line-2); }
+.quote-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.top-pick { font-size: 0.75rem; color: var(--dim); text-decoration: none; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.top-pick b { color: var(--amber); }
+.top-pick:hover { color: var(--text); }
+.pick-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.78rem; margin: -4px 0 12px; min-height: 0; }
+.pick-row:empty { display: none; }
+@media (max-width: 640px) { .quote-side { align-items: stretch; } .top-pick { justify-content: flex-start; } }
