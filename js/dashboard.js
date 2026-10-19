@@ -1,5 +1,5 @@
 import { store } from './store.js';
-import { stats, hourStamps, examCountdown, currentLevel, tickerOf, DAY } from './model.js';
+import { stats, hourStamps, examCountdown, currentLevel, tickerOf, levelScores, accuracy, DAY } from './model.js';
 import { MILESTONES } from './curriculum.js';
 import { analystRatings, topPick, ratingMinHours } from './ratings.js';
 import { setTopic } from './timer.js';
@@ -69,6 +69,7 @@ function quote(st) {
         ${cell('STRK', `${st.streak}D`, st.streak ? 'up' : '')}
         ${cell('MODS', `${mods.done}/${mods.total}`)}
         ${cell('CAM', st.total ? `${Math.round((st.verified / st.total) * 100)}%` : '—')}
+        ${(() => { const a30 = accuracy(levelScores(level), Date.now() - 30 * DAY); return cell('ACC 30D', a30.pct === null ? '<a href="#/earnings">LOG</a>' : `${a30.pct.toFixed(1)}%`, a30.pct === null ? '' : a30.pct >= (s.scoreTarget || 70) ? 'up' : 'down'); })()}
       </div>
     </section>`;
 }
@@ -204,6 +205,8 @@ function ratingChip(r) {
 
 function watchlist(st) {
   const ratings = analystRatings(st.topics);
+  const reports = levelScores();
+  const tgt = store.doc.settings.scoreTarget || 70;
   const rows = st.topics.map((t) => {
     const chg = (t.week - t.prevWeek) / 3600;
     const r = ratings.get(t.topic.id);
@@ -215,6 +218,7 @@ function watchlist(st) {
       <td class="num">${arrow(chg)}</td>
       <td class="num">${t.done}/${t.total}</td>
       <td class="bar-cell"><div class="meter"><div style="width:${t.total ? (t.done / t.total) * 100 : 0}%"></div></div></td>
+      ${(() => { const a = accuracy(reports.filter((x) => x.topicId === t.topic.id)); return `<td class="num ${a.pct === null ? 'muted' : a.pct >= tgt ? 'up' : 'down'}">${a.pct === null ? '—' : `${a.pct.toFixed(0)}%`}</td>`; })()}
       <td class="num muted">${r.target === null ? '—' : `${Math.round(r.share * 100)}/${Math.round(r.target * 100)}%`}</td>
       <td>${ratingChip(r)}</td>
     </tr>`;
@@ -224,7 +228,7 @@ function watchlist(st) {
     <section class="panel">
       <div class="phead"><span>WATCHLIST · LEVEL ${ROMAN[currentLevel()]}</span><span class="muted">${unrated ? `RATINGS START AFTER ${ratingMinHours}H BANKED` : 'MIX = YOUR SHARE OF HOURS / SHARE OF THE EXAM'}</span></div>
       <div class="table-wrap"><table class="watch">
-        <thead><tr><th>TKR</th><th>TOPIC</th><th class="num">HRS</th><th class="num">7D</th><th class="num">7D CHG</th><th class="num">MODS</th><th>DONE</th><th class="num">MIX</th><th>RATING</th></tr></thead>
+        <thead><tr><th>TKR</th><th>TOPIC</th><th class="num">HRS</th><th class="num">7D</th><th class="num">7D CHG</th><th class="num">MODS</th><th>DONE</th><th class="num">ACC</th><th class="num">MIX</th><th>RATING</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </section>`;

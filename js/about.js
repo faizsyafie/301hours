@@ -17,14 +17,15 @@ const HTML = `
       <li><b>DASH</b> Hours banked, pace needed for exam day, the 301-square hour grid and milestones.</li>
       <li><b>STUDY</b> Pomodoro timer with a desk cam: the clock only runs while you're in frame. Video never leaves your device.</li>
       <li><b>TOPICS</b> The Level I–III curriculum as a checklist you can rename, re-ticker and extend.</li>
+      <li><b>EARNINGS</b> Log question sets and mocks. Each is a BEAT or MISS against your target score.</li>
       <li><b>SYNC</b> Passcode-protected, so your progress follows you across devices.</li>
     </ul>
     <div class="about-keys">
-      <span><kbd>1</kbd>–<kbd>4</kbd> pages</span>
+      <span><kbd>1</kbd>–<kbd>5</kbd> pages</span>
       <span><kbd>SPACE</kbd> open / halt</span>
       <span><kbd>S</kbd> skip</span>
       <span><kbd>R</kbd> reset</span>
-      <span><kbd>5</kbd> this screen</span>
+      <span><kbd>6</kbd> this screen</span>
     </div>
     <div class="about-links">
       <a class="btn primary" href="${GITHUB}" target="_blank" rel="noopener">GITHUB · @FAIZSYAFIE ↗</a>

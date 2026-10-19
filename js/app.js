@@ -5,6 +5,7 @@ import { renderDashboard, tickerItems, milestonesFor, symbol } from './dashboard
 import { renderStudy } from './study.js';
 import { renderTopics } from './topics.js';
 import { renderSettings } from './settings.js';
+import { renderScores } from './scores.js';
 import { stats, currentLevel } from './model.js';
 import { play } from './sounds.js';
 import { showAbout } from './about.js';
@@ -16,9 +17,10 @@ const ROUTES = {
   '': ['dashboard', renderDashboard],
   study: ['study', renderStudy],
   topics: ['topics', renderTopics],
+  earnings: ['earnings', renderScores],
   settings: ['settings', renderSettings],
 };
-const KEYS = { 1: '#/', 2: '#/study', 3: '#/topics', 4: '#/settings' };
+const KEYS = { 1: '#/', 2: '#/study', 3: '#/topics', 4: '#/earnings', 5: '#/settings' };
 
 let cleanup = null;
 let current = '';
@@ -165,7 +167,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, select, textarea, dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
   if (KEYS[e.key]) location.hash = KEYS[e.key];
-  else if ((e.key === '5' || e.key === '?') && !document.querySelector('dialog[open]')) showAbout();
+  else if ((e.key === '6' || e.key === '?') && !document.querySelector('dialog[open]')) showAbout();
 });
 
 let lastStatus = null;

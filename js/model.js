@@ -103,3 +103,17 @@ export function hourStamps(sessions) {
   }
   return stamps;
 }
+
+// ---------- Practice scores ("earnings") ----------
+export function levelScores(level = currentLevel()) {
+  return (store.doc.scores || []).filter((r) => !r.deleted && (r.level || 1) === level && r.total > 0);
+}
+
+export const pct = (r) => (r.correct / r.total) * 100;
+
+// Aggregate accuracy over reports, optionally since a timestamp.
+export function accuracy(reports, since = 0) {
+  let correct = 0, total = 0;
+  for (const r of reports) if (r.date >= since) { correct += r.correct; total += r.total; }
+  return { correct, total, pct: total ? (correct / total) * 100 : null };
+}

@@ -157,7 +157,7 @@ label.inline { flex-direction: row; align-items: center; gap: 8px; }
 .quote-px { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-top: 6px; }
 .px { font-size: 3.6rem; font-weight: 700; line-height: 1; color: var(--amber); letter-spacing: -0.02em; }
 .chg { font-size: 1.05rem; font-weight: 600; }
-.qstrip { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(8, 1fr); border-top: 1px solid var(--line); padding-top: 10px; gap: 8px; }
+.qstrip { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(9, 1fr); border-top: 1px solid var(--line); padding-top: 10px; gap: 8px; }
 .qcell { display: flex; flex-direction: column; }
 .qcell .k { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em; }
 .qcell .v { font-size: 1.05rem; font-weight: 600; }
@@ -356,7 +356,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1000px) {
-  .qstrip { grid-template-columns: repeat(4, 1fr); }
+  .qstrip { grid-template-columns: repeat(3, 1fr); }
   .row-2, .study, .grid-2 { grid-template-columns: 1fr; }
   .topbar { flex-wrap: wrap; gap: 8px 14px; }
   .nav { order: 3; width: 100%; }
@@ -417,3 +417,24 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
 .pick-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.78rem; margin: -4px 0 12px; min-height: 0; }
 .pick-row:empty { display: none; }
 @media (max-width: 640px) { .quote-side { align-items: stretch; } .top-pick { justify-content: flex-start; } }
+
+/* ---------- Earnings ---------- */
+.rating.miss { color: var(--red); }
+.kind { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; padding: 0 6px; }
+.kind.qbank { color: var(--bg); background: var(--dim); }
+.kind.mock { color: var(--bg); background: var(--cyan); }
+.kv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.kv-grid .k, .kv-grid .v { display: block; }
+.kv-grid .k { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em; }
+.kv-grid .v { font-size: 1.1rem; font-weight: 600; }
+.acc-track { position: relative; height: 8px; background: var(--sq-off); min-width: 100px; }
+.acc-fill { height: 100%; background: var(--dim); }
+.acc-fill.beat { background: var(--green); }
+.acc-fill.miss { background: var(--red); }
+.acc-target { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); }
+.mock-chart { min-height: 0; }
+.mock-chart .mdot { stroke: var(--panel); stroke-width: 2; }
+.mock-chart .mdot.beat { fill: var(--green); }
+.mock-chart .mdot.miss { fill: var(--red); }
+.reports .note-cell { white-space: normal; min-width: 120px; }
+.score-form .preview { margin: 0; }

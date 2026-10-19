@@ -14,6 +14,7 @@ const FIELDS = [
   ['longMin', 'LONG BREAK (MIN)', 'number', { min: 1, max: 120 }],
   ['longEvery', 'LONG BREAK EVERY N BLOCKS', 'number', { min: 1, max: 12 }],
   ['graceSec', 'SECONDS AWAY BEFORE HALT', 'number', { min: 1, max: 120 }],
+  ['scoreTarget', 'PRACTICE SCORE TARGET (%)', 'number', { min: 1, max: 100 }],
 ];
 
 const TOGGLES = [
