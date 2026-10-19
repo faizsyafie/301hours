@@ -18,6 +18,7 @@ const HTML = `
       <li><b>STUDY</b> Pomodoro timer with a desk cam: the clock only runs while you're in frame. Video never leaves your device.</li>
       <li><b>TOPICS</b> The Level I–III curriculum as a checklist you can rename, re-ticker and extend.</li>
       <li><b>EARNINGS</b> Log question sets and mocks. Each is a BEAT or MISS against your target score.</li>
+      <li><b>RATINGS</b> BUY/HOLD/TRIM per topic vs exam weight, plus your AAA–CCC consistency rating and a weekly 10-K.</li>
       <li><b>SYNC</b> Passcode-protected, so your progress follows you across devices.</li>
     </ul>
     <div class="about-keys">

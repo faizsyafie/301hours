@@ -451,6 +451,7 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .mat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mat-act { grid-column: 2 / -1; display: flex; gap: 6px; }
 .row-2b { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+@media (max-width: 1000px) { .row-2b { grid-template-columns: 1fr; } }
 
 /* ---------- Heatmap ---------- */
 .heat { position: relative; aspect-ratio: 2 / 1; min-height: 220px; }
