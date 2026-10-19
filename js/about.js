@@ -2,7 +2,6 @@ import { panel } from './dialog.js';
 
 const GITHUB = 'https://github.com/faizsyafie';
 const REPO = 'https://github.com/faizsyafie/301hours';
-const SEEN_KEY = '301hours:aboutSeen';
 
 const HTML = `
   <div class="about">
@@ -25,7 +24,7 @@ const HTML = `
       <span><kbd>SPACE</kbd> open / halt</span>
       <span><kbd>S</kbd> skip</span>
       <span><kbd>R</kbd> reset</span>
-      <span><kbd>?</kbd> this screen</span>
+      <span><kbd>5</kbd> this screen</span>
     </div>
     <div class="about-links">
       <a class="btn primary" href="${GITHUB}" target="_blank" rel="noopener">GITHUB · @FAIZSYAFIE ↗</a>
@@ -35,13 +34,6 @@ const HTML = `
   </div>`;
 
 export function showAbout() {
-  try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* ignore */ }
   return panel('ABOUT', HTML);
 }
 
-// Show the intro once, on someone's first visit.
-export function showAboutOnce() {
-  let seen = false;
-  try { seen = localStorage.getItem(SEEN_KEY) === '1'; } catch { /* ignore */ }
-  if (!seen) showAbout();
-}

@@ -6,7 +6,7 @@ import { renderTopics } from './topics.js';
 import { renderSettings } from './settings.js';
 import { stats, currentLevel } from './model.js';
 import { play } from './sounds.js';
-import { showAbout, showAboutOnce } from './about.js';
+import { showAbout } from './about.js';
 import { $, $$, clock, esc } from './util.js';
 import { video } from './presence.js';
 
@@ -163,7 +163,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, select, textarea, dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
   if (KEYS[e.key]) location.hash = KEYS[e.key];
-  else if (e.key === '?' && !document.querySelector('dialog[open]')) showAbout();
+  else if ((e.key === '5' || e.key === '?') && !document.querySelector('dialog[open]')) showAbout();
 });
 
 let lastStatus = null;
@@ -201,5 +201,3 @@ lastStamp = store.doc.updatedAt;
 lastLevel = currentLevel();
 route();
 updateTape();
-// First visit: introduce the tool, unless the passcode prompt is already up.
-setTimeout(() => { if (!document.querySelector('dialog[open]')) showAboutOnce(); }, 600);
