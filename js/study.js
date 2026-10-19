@@ -70,6 +70,7 @@ export function renderStudy(root) {
             <label class="switch"><input type="checkbox" name="presence" ${s.presence ? 'checked' : ''}> PRESENCE CHECK</label>
           </div>
           <div class="onair" data-state="off"><span class="lamp"></span><span class="onair-text"></span></div>
+          <div class="readout" hidden></div>
           <div class="cam" data-state="off">
             <div class="cam-box" hidden></div>
             <div class="cam-placeholder"></div>
@@ -79,7 +80,7 @@ export function renderStudy(root) {
             <button type="button" class="btn" data-act="camera"></button>
             <label class="check"><input type="checkbox" name="hidePreview" ${hidePreview() ? 'checked' : ''}> HIDE VIDEO</label>
           </div>
-          <p class="note">The clock only runs while you're at the desk. Leave for more than <b>${s.graceSec}s</b> and trading halts until you're back. Breaks don't need the camera. Detection runs on this device; no video is uploaded or stored.</p>
+          <p class="note">The clock only runs while you're at the desk. Leave for more than <b>${s.graceSec}s</b> and trading halts until you're back. Breaks don't need the camera. It needs a confident face, or your body and posture confirmed by two separate models, so chairs and coats don't count. Detection runs on this device; no video is uploaded or stored.</p>
           <p class="note">Keep this tab visible. Browsers throttle background tabs, so a separate window works best.</p>
         </section>
 
@@ -203,7 +204,7 @@ export function renderStudy(root) {
     onair.dataset.state = camState;
     $('.onair-text', root).textContent = {
       off: 'DESK CAM OFF',
-      loading: 'CONNECTING…',
+      loading: 'LOADING MODELS…',
       error: `ERROR · ${presence.error}`,
       seen: 'AT DESK',
       grace: 'LOOKING FOR YOU…',
@@ -211,6 +212,14 @@ export function renderStudy(root) {
     }[camState];
     $('.cam-placeholder', root).textContent = presence.state === 'ready' && hide ? 'VIDEO HIDDEN · STILL WATCHING' : presence.state === 'off' ? 'NO SIGNAL' : '';
     $('[data-act="camera"]', root).textContent = presence.state === 'off' || presence.state === 'error' ? 'CAM ON' : 'CAM OFF';
+
+    const readout = $('.readout', root);
+    readout.hidden = presence.state !== 'ready';
+    if (presence.state === 'ready') {
+      const sc = presence.scores;
+      const val = (v) => (v ? v.toFixed(2) : '—');
+      readout.innerHTML = `FACE <b class="${sc.face >= 0.6 ? 'up' : ''}">${val(sc.face)}</b> · BODY <b class="${sc.person >= 0.5 ? 'up' : ''}">${val(sc.person)}</b> · POSE <b class="${sc.pose ? 'up' : ''}">${sc.pose ? 'MATCH' : '—'}</b> · VIA <b>${presence.reason ? presence.reason.toUpperCase() : '—'}</b>`;
+    }
 
     const box = $('.cam-box', root);
     if (presence.state === 'ready' && presence.box && !hide) {
