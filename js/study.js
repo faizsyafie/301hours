@@ -1,5 +1,6 @@
 import { store, save } from './store.js';
-import { timer, onTimer, start, pause, skip, restart, switchTo, setTopic, phaseLengthSec, remainingSec } from './timer.js';
+import { timer, onTimer, toggle, skip, restart, switchTo, setTopic, phaseLengthSec, remainingSec } from './timer.js';
+import { openMini, miniMode } from './pip.js';
 import { presence, onPresence, startCamera, stopCamera, isPresent, video } from './presence.js';
 import { levelTopics, currentLevel, sessionLevel, tickerOf } from './model.js';
 import { $, esc, clock, duration, uid, dayKey, startOfDay } from './util.js';
@@ -37,7 +38,7 @@ export function renderStudy(root) {
   root.innerHTML = `
     <div class="study">
       <section class="panel timer-panel" data-phase="${timer.phase}">
-        <div class="phead"><span>SESSION</span><span class="muted">SPACE OPEN/HALT · S SKIP · R RESET</span></div>
+        <div class="phead"><span>SESSION</span><span class="muted">SPACE OPEN/HALT · S SKIP · R RESET · P POP OUT</span></div>
         <div class="seg" role="tablist">
           ${Object.entries(PHASES).map(([k, v]) => `<button type="button" role="tab" data-phase="${k}" aria-selected="${k === timer.phase}">${v}</button>`).join('')}
         </div>
@@ -50,6 +51,10 @@ export function renderStudy(root) {
           <button type="button" class="btn" data-act="restart" title="Start this block over (R)">RESET</button>
           <button type="button" class="btn primary big" data-act="toggle"></button>
           <button type="button" class="btn" data-act="skip" title="End this block now (S)">SKIP ▸</button>
+        </div>
+        <div class="popout-row">
+          <button type="button" class="btn small" data-act="popout" title="${miniMode === 'pip' ? 'Always-on-top mini window (P)' : 'Small separate window (P)'}">⧉ POP OUT MINI-TERMINAL</button>
+          <span class="note">${miniMode === 'pip' ? 'Stays on top of other windows, so you can read your notes and still see the clock.' : 'Opens a small window. Pinning it on top needs Chrome or Edge.'}</span>
         </div>
         <div class="fields">
           <label>TOPIC<select name="topic">${topicOptions(timer.topicId)}</select></label>
@@ -106,16 +111,12 @@ export function renderStudy(root) {
   camEl.prepend(video);
   video.play().catch(() => {});
 
-  const toggle = () => {
-    if (timer.running) return pause();
-    if (timer.phase === 'study' && store.doc.settings.presence && presence.state !== 'ready') startCamera();
-    start();
-  };
 
   root.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.phase)));
   $('[data-act="toggle"]', root).addEventListener('click', toggle);
   $('[data-act="skip"]', root).addEventListener('click', skip);
   $('[data-act="restart"]', root).addEventListener('click', restart);
+  $('[data-act="popout"]', root).addEventListener('click', openMini);
   $('[data-act="camera"]', root).addEventListener('click', () => (presence.state === 'off' || presence.state === 'error' ? startCamera() : stopCamera()));
 
   const topicSel = $('[name="topic"]', root);
@@ -161,6 +162,7 @@ export function renderStudy(root) {
     if (e.code === 'Space') { e.preventDefault(); toggle(); }
     else if (e.key === 's') skip();
     else if (e.key === 'r') restart();
+    else if (e.key === 'p') openMini();
   };
   document.addEventListener('keydown', onKey);
 

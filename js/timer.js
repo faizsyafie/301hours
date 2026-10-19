@@ -263,6 +263,13 @@ export function start() {
   emit();
 }
 
+// Start/halt as the main button does: starts the desk cam if a study block needs it.
+export function toggle() {
+  if (timer.running) return pause();
+  if (timer.phase === 'study' && settings().presence && presence.state !== 'ready') startCamera();
+  start();
+}
+
 export function pause() {
   timer.running = false;
   timer.counting = false;
