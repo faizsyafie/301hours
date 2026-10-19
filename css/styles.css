@@ -294,6 +294,12 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
 /* ---------- Settings ---------- */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 .sync-text { margin: 0; }
+.diag { list-style: none; margin: 12px 0 0; padding: 0; font-size: 0.82rem; }
+.diag li { padding: 6px 0; border-top: 1px dashed var(--line); }
+.diag li.ok b { color: var(--green); }
+.diag li.bad b, .diag li.bad { color: var(--red); }
+.diag li.warn b { color: var(--amber); }
+.diag .fix { color: var(--dim); margin: 2px 0 0 18px; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1000px) {
@@ -314,8 +320,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
   .modules .actions { opacity: 1; }
   .controls .btn.primary { min-width: 0; flex: 1; }
   .topbar-right { gap: 6px; }
-  .sync { font-size: 0; padding: 3px 6px; }
-  .sync::before { font-size: 12px; margin: 0; }
+  .sync { padding: 3px 6px; font-size: 0.68rem; }
   .tape td { white-space: normal; }
 }
 @media (forced-colors: active) {

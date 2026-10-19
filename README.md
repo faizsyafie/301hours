@@ -24,12 +24,15 @@ Tips:
 ## Deploying to Vercel
 
 1. **Import the repo.** In Vercel, choose *Add New → Project*, import `301hours`, and deploy with the default settings. There is no build step.
-2. **Add a database.** In the project, open *Storage → Create Database* (or *Marketplace*), choose **Upstash Redis** (free plan), and connect it to the project. This adds the `KV_REST_API_URL` and `KV_REST_API_TOKEN` environment variables automatically. `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` also work.
+2. **Add a database.** In the project, open *Storage* and connect a Redis database: **Upstash for Redis** (free plan) is recommended, but the plain *Redis* option works too. The app picks up `KV_REST_API_URL`/`KV_REST_API_TOKEN`, `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, or `REDIS_URL`/`KV_URL` automatically.
 3. **Set a passcode.** In *Settings → Environment Variables*, add `APP_PASSCODE` with a passcode of your choice.
 4. **Redeploy** (*Deployments → ⋯ → Redeploy*) so the new variables are picked up.
 5. Open the site and enter your passcode once on each device.
 
-### If sync says LOCKED or OFFLINE
+### If sync isn't working
+
+Open **Setup → Sync → RUN DIAGNOSTICS**. It checks each piece (database connected and answering, `APP_PASSCODE` set, this device's passcode accepted, Deployment Protection) and says how to fix the first one that fails.
+
 
 - **LOCKED, wrong passcode:** what you type must match `APP_PASSCODE` (case-sensitive). Spaces and quotes around either are ignored. If you changed the variable, redeploy, because variables only reach new deployments.
 - **OFFLINE, Deployment Protection:** Vercel's own login is in front of the API on that URL. Use the main `<project>.vercel.app` domain, or turn off *Vercel Authentication* under *Settings → Deployment Protection*.

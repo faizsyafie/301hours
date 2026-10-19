@@ -36,7 +36,7 @@ function route() {
   updateHeader();
 }
 
-const SYNC_LABEL = { synced: 'SYNCED', syncing: 'SYNCING', offline: 'OFFLINE', locked: 'LOCKED', local: 'LOCAL' };
+const SYNC_LABEL = { synced: 'SYNCED', syncing: 'SYNCING', offline: 'OFFLINE', locked: 'LOCKED', local: 'NOT SYNCED' };
 
 function updateSync() {
   const btn = $('.sync');
@@ -154,6 +154,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (e.target.closest('[data-unlock]') || (e.target.closest('.sync') && store.status === 'locked')) askPasscode();
+  else if (e.target.closest('.sync') && (store.status === 'local' || store.status === 'offline')) location.hash = '#/settings';
   else if (e.target.closest('.sync')) sync();
 });
 

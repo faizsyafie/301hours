@@ -1,26 +1,13 @@
 // GET  /api/data  -> { doc }        current study data (or null if none yet)
 // PUT  /api/data  -> { doc }        merge the sent copy into the stored one
 // Requires the `x-passcode` header to match APP_PASSCODE.
-// Storage is Upstash Redis via its REST API (env vars are added automatically
-// when you connect an Upstash database to the project in the Vercel dashboard).
+// Storage is whichever Redis is connected to the Vercel project (see lib/db.js).
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { mergeDocs } from '../lib/merge.js';
+import * as db from '../lib/db.js';
 
 const KEY = '301hours:data';
-const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const PASSCODE = process.env.APP_PASSCODE;
-
-async function redis(command) {
-  const res = await fetch(REDIS_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${REDIS_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(command),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok || body.error) throw new Error(body.error || `Redis HTTP ${res.status}`);
-  return body.result;
-}
 
 // Ignores the usual copy-paste accidents: surrounding spaces/newlines and
 // quotes around the value in the Vercel dashboard.
@@ -40,8 +27,8 @@ function passcodeMatches(given) {
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
-  if (!REDIS_URL || !REDIS_TOKEN) {
-    return res.status(501).json({ error: 'No database connected. Add Upstash Redis to the Vercel project.' });
+  if (!db.backend) {
+    return res.status(501).json({ error: 'No database connected. Add a Redis database (e.g. Upstash) to the Vercel project, then redeploy.' });
   }
   if (!normalize(PASSCODE)) {
     return res.status(501).json({ error: 'APP_PASSCODE environment variable is not set.' });
@@ -52,7 +39,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const raw = await redis(['GET', KEY]);
+      const raw = await db.get(KEY);
       return res.status(200).json({ doc: raw ? JSON.parse(raw) : null });
     }
 
@@ -61,15 +48,15 @@ export default async function handler(req, res) {
       if (!incoming || !Array.isArray(incoming.topics) || !Array.isArray(incoming.sessions)) {
         return res.status(400).json({ error: 'Invalid data' });
       }
-      const raw = await redis(['GET', KEY]);
+      const raw = await db.get(KEY);
       const merged = mergeDocs(raw ? JSON.parse(raw) : null, incoming);
-      await redis(['SET', KEY, JSON.stringify(merged)]);
+      await db.set(KEY, JSON.stringify(merged));
       return res.status(200).json({ doc: merged });
     }
 
     res.setHeader('Allow', 'GET, PUT');
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: `Database error: ${err.message}` });
   }
 }
