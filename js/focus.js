@@ -6,6 +6,7 @@ import { timer, onTimer, toggle, phaseLengthSec, remainingSec } from './timer.js
 import { presence, onPresence, isPresent } from './presence.js';
 import { stats, tickerOf } from './model.js';
 import { clock, duration, esc } from './util.js';
+import { mountReview } from './cards.js';
 
 let overlay = null;
 let offs = [];
@@ -50,6 +51,13 @@ function update() {
   overlay.querySelector('.fm-cam').dataset.state = cam;
   overlay.querySelector('.fm-cam-text').textContent = { off: s.presence ? 'CAM OFF' : 'NO CAM', seen: 'AT DESK', grace: 'LOOKING…', away: presence.phone ? 'PHONE' : 'AWAY' }[cam];
   overlay.querySelector('.fm-target').innerHTML = targetLine();
+  const onBreak = timer.phase !== 'study' && s.breakCards !== false;
+  const cardEl = overlay.querySelector('.fm-card');
+  cardEl.hidden = !onBreak;
+  if (onBreak && overlay.dataset.cardFor !== timer.phase + timer.completed) {
+    overlay.dataset.cardFor = timer.phase + timer.completed;
+    mountReview(cardEl, { title: 'BREAK CARD' });
+  }
 }
 
 export function isFocusMode() { return Boolean(overlay); }
@@ -67,6 +75,7 @@ export function enterFocus() {
       <div class="fm-time"></div>
       <div class="bar-track"><div class="bar-fill"></div></div>
       <div class="fm-status"></div>
+      <div class="fm-card panel" hidden></div>
     </div>
     <div class="fm-bottom"><div class="fm-target"></div><div class="muted small">SPACE OPEN/HALT · F OR ESC TO EXIT</div></div>`;
   document.body.append(overlay);

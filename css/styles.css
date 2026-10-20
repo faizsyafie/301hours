@@ -608,3 +608,16 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .plan .icon:disabled { opacity: 0.25; cursor: default; }
 .plan-add { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .plan-add select[name="planTopic"], .plan-add select[name="planItem"] { flex: 1 1 160px; min-width: 0; }
+
+/* ---------- Flashcards ---------- */
+.fc { border: 1px solid var(--line-2); background: var(--bg); padding: 16px; margin-bottom: 10px; min-height: 90px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.fc-front { font-size: 1.05rem; font-weight: 600; color: var(--text); }
+.fc-back { border-top: 1px dashed var(--line-2); padding-top: 10px; color: var(--cyan); }
+.fc-actions .btn { flex: 0 0 auto; }
+.card-panel { border-color: color-mix(in srgb, var(--cyan) 40%, var(--line)); }
+.fcm textarea, .fcm-bulk textarea { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line-2); padding: 6px 8px; resize: vertical; box-sizing: border-box; }
+.fcm-bulk { margin: 10px 0; }
+.fcm-bulk summary { cursor: pointer; margin-bottom: 6px; }
+.fcm-list { list-style: none; margin: 10px 0 0; padding: 0; max-height: 40vh; overflow: auto; }
+.fcm-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.fm-card { width: min(640px, 90vw); margin-top: 18px; text-align: left; }

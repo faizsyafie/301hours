@@ -291,6 +291,7 @@ export const DEFAULT_SETTINGS = {
   phoneCheck: true,
   wrapUp: true,
   wakeLock: true,
+  breakCards: true,
   wrapFocus: true,
   wrapNotes: true,
   wrapModule: true,
@@ -304,5 +305,5 @@ export const DEFAULT_SETTINGS = {
 };
 
 export function defaultDoc() {
-  return { v: 1, updatedAt: 0, settings: { ...DEFAULT_SETTINGS }, topics: defaultTopics(), sessions: [], scores: [] };
+  return { v: 1, updatedAt: 0, settings: { ...DEFAULT_SETTINGS }, topics: defaultTopics(), sessions: [], scores: [], cards: [] };
 }

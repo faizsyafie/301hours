@@ -4,6 +4,7 @@ import { stats, currentLevel, tickerOf } from './model.js';
 import { PATHWAYS } from './curriculum.js';
 import { analystRatings } from './ratings.js';
 import { revOf, onDoneChange, STAGE_LABEL, act as reviewAct } from './reviews.js';
+import { cardsFor, openCardManager } from './cards.js';
 import { esc, uid, hours, shortDate } from './util.js';
 import { ask, confirmBox, panel } from './dialog.js';
 
@@ -106,6 +107,7 @@ export function renderTopics(root, params) {
             <div class="topic-actions row">
               <button type="button" class="btn small" data-act="study-topic">▶ STUDY THIS</button>
               ${notesFor(topic.id).length ? `<button type="button" class="btn small" data-act="notes-topic">✎ NOTES (${notesFor(topic.id).length})</button>` : ''}
+              <button type="button" class="btn small" data-act="cards-topic">▤ FLASHCARDS (${cardsFor(topic.id).length})</button>
               <button type="button" class="btn small" data-act="rename-topic">RENAME</button>
               <button type="button" class="btn small" data-act="ticker-topic">TICKER</button>
               <button type="button" class="btn small" data-act="weight-topic">WEIGHT</button>
@@ -208,6 +210,7 @@ export function renderTopics(root, params) {
     const li = btn.closest('li[data-item]');
     const item = li && topic.items.find((i) => i.id === li.dataset.item);
 
+    if (act === 'cards-topic') return openCardManager(topic, ask);
     if (act === 'notes-item') return showNotes(`NOTES · ${item.name.toUpperCase()}`.slice(0, 60), notesFor(topic.id, item.id));
     if (act === 'notes-topic') return showNotes(`NOTES · ${topic.name.toUpperCase()}`, notesFor(topic.id));
     if (act === 'study-item' || act === 'study-topic') {

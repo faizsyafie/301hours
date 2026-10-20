@@ -3,6 +3,7 @@ import { timer, onTimer, toggle, skip, restart, switchTo, setTopic, phaseLengthS
 import { openMini, miniMode } from './pip.js';
 import { toggleFocus, targetLine, isFocusMode } from './focus.js';
 import { planPanel, wirePlan, bindPlanSelects } from './plan.js';
+import { mountReview } from './cards.js';
 import { ambient, MODES, setMode, setVolume, preview } from './ambient.js';
 import { presence, onPresence, startCamera, stopCamera, isPresent, video } from './presence.js';
 import { levelTopics, currentLevel, sessionLevel, tickerOf, stats } from './model.js';
@@ -76,6 +77,7 @@ export function renderStudy(root) {
           <div><span class="k">PICKUPS</span><span class="v pickups"></span></div>
         </div>
       </section>
+      <section class="panel card-panel" hidden></section>
       <section class="panel plan-panel"></section>
       </div>
 
@@ -152,6 +154,11 @@ export function renderStudy(root) {
     itemSel.disabled = !topicSel.value;
   });
   itemSel.disabled = !timer.topicId;
+
+  // Break cards panel (filled in update()).
+  const cardEl = $('.card-panel', root);
+  let cardPhase = '';
+  let lastTopic = timer.topicId;
 
   // Study plan panel.
   const planEl = $('.plan-panel', root);
@@ -266,6 +273,14 @@ export function renderStudy(root) {
     $('.blocks', root).textContent = String(timer.completed);
     $('.away-time', root).textContent = clock(timer.awayMs / 1000);
     $('.target-row', root).innerHTML = targetLine();
+    // Break cards: one review session per break.
+    const onBreak = timer.phase !== 'study' && store.doc.settings.breakCards !== false;
+    cardEl.hidden = !onBreak;
+    if (onBreak && cardPhase !== timer.phase + timer.completed) {
+      cardPhase = timer.phase + timer.completed;
+      mountReview(cardEl, { topicId: () => lastTopic });
+    }
+    if (timer.phase === 'study') lastTopic = timer.topicId;
     // The plan (or another device) may have switched topic: keep the menus in step.
     if (topicSel.value !== timer.topicId) {
       topicSel.value = timer.topicId;
