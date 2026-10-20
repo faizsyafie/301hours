@@ -11,6 +11,11 @@ Styled as a trading terminal. Your study hours trade as `$CFA1`, `$CFA2` or `$CF
 - **Milestones**: crossing 10, 25, 50, 100, 150, 200, 250, 300 and 301 hours triggers a breaking-news banner.
 - **Sync & accounts**: data is saved in the browser and synced to a small database on Vercel. Either sign in with Google (one account per person, so others can use it too) or use a single passcode.
 - **General study (GEN)**: time logged without a topic counts towards your totals and shows as its own GEN line in the watchlist, ticker and heatmap, but is never rated against the exam.
+- **Phone check**: with the camera on, a phone in frame halts the study clock ("PHONE IN HAND"), and pickups are counted. Switch it off on the Study page or in Setup.
+- **End-of-block wrap-up**: after each block, optionally rate your focus (1–5), note what you covered, tie it to a module (finishing it is optional) and log practice questions. Turn the whole thing or individual questions off in Setup. Notes show per module on Topics.
+- **Focus mode** (`F`): a full-screen countdown with the desk-cam light and today's target; the screen is kept awake while the timer runs.
+- **Study plan**: queue blocks by topic/module on the Study page; each new block loads the next one and finished blocks tick off.
+- **Flashcards**: your own cards per topic (Topics → FLASHCARDS; add one by one or paste `front | back` lines). They appear during breaks and in focus mode, using a Leitner box system (GOT IT = seen less often, AGAIN = back to box 1).
 - **Analyst ratings**: each topic's share of your hours vs its share of the exam: UNDERWEIGHT · BUY, MARKET WEIGHT · HOLD or OVERWEIGHT · TRIM, plus a "top pick" to study next.
 - **Earnings**: log question-bank sets and mock exams; each one BEATs or MISSes your target score (70% by default), with accuracy per topic and a mock-exam trend.
 - **Revision schedule**: ticked modules come back for review after 1, 7 and 30 days ("maturing" on the dashboard).
