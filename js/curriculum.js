@@ -301,6 +301,8 @@ export const DEFAULT_SETTINGS = {
   alerts: true,
   sound: true,
   celebrated: [],
+  restWeekdays: [],
+  restDates: [],
   scoreTarget: 70,
 };
 

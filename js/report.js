@@ -1,7 +1,7 @@
 // Weekly 10-K: a one-page filing for a Monday–Sunday week, viewable in the app
 // and savable as an image.
 import { store } from './store.js';
-import { stats, levelScores, accuracy, currentLevel, levelTopics, tickerOf, DAY } from './model.js';
+import { stats, levelScores, accuracy, currentLevel, levelTopics, tickerOf, isRestDay, DAY } from './model.js';
 import { creditRating } from './ratings.js';
 import { reviewsBetween } from './reviews.js';
 import { panel } from './dialog.js';
@@ -53,6 +53,7 @@ export function weekReport(offset = 0) {
     reviews: reviewsBetween(from, to),
     questions: acc.total, accuracy: acc.pct,
     studied: days.filter((d) => d.sec > 0).length,
+    restDays: days.filter((d) => !d.sec && isRestDay(d.ts)).length,
     targetHits: goal ? days.filter((d) => d.sec >= goal).length : null,
     rating: creditRating(st, store.doc.settings.dailyGoalHours),
     focusAvg,
@@ -79,7 +80,7 @@ function html(r) {
       <div class="tenk-hero"><span class="tenk-h">${(r.sec / 3600).toFixed(2)}</span><span class="muted">HRS BANKED</span><span class="${r.sec >= r.prevSec ? 'up' : 'down'}">${change(r)} vs prior week</span></div>
       <div class="tenk-days">${bars}</div>
       <div class="kv-grid">
-        ${kv('DAYS STUDIED', `${r.studied}/7`)}
+        ${kv('DAYS STUDIED', `${r.studied}/${7 - r.restDays}${r.restDays ? ` <span class="muted small">+${r.restDays} rest</span>` : ''}`)}
         ${kv('TARGET HIT', r.targetHits === null ? '—' : `${r.targetHits}/7`)}
         ${kv('BEST DAY', r.best.sec ? `${new Date(r.best.ts).toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()} ${duration(r.best.sec)}` : '—')}
         ${kv('CAM-VERIFIED', r.sec ? `${Math.round((r.verified / r.sec) * 100)}%` : '—')}

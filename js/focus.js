@@ -4,7 +4,7 @@
 import { store } from './store.js';
 import { timer, onTimer, toggle, phaseLengthSec, remainingSec } from './timer.js';
 import { presence, onPresence, isPresent } from './presence.js';
-import { stats, tickerOf } from './model.js';
+import { stats, tickerOf, isRestDay } from './model.js';
 import { clock, duration, esc } from './util.js';
 import { mountReview } from './cards.js';
 
@@ -22,6 +22,7 @@ export function todayTarget() {
 
 export function targetLine() {
   const t = todayTarget();
+  if (isRestDay(Date.now()) && !t.today) return '<span class="rest-tag">☾ REST DAY</span> <span class="muted">No target today. Anything you study is a bonus.</span>';
   if (!t.goal) return '<span class="muted">No daily target set (5 SETUP).</span>';
   return `<span class="k">TODAY</span> <b>${(t.today / 3600).toFixed(1)} / ${(t.goal / 3600).toFixed(1)}H</b>
     <span class="tgt-track"><span style="width:${t.pct}%"></span></span>

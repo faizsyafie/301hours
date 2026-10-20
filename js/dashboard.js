@@ -38,8 +38,8 @@ export function showCredit() {
   const body = cr.grade === 'NR'
     ? `<p>Not rated yet. Study on ${cr.needDays} more day${cr.needDays === 1 ? '' : 's'} to get your first rating.</p>`
     : `<div class="cr-head"><span class="cr-grade">${cr.grade}</span><div><div>SCORE <b>${cr.score.toFixed(0)}</b>/100 · OUTLOOK <b class="outlook ${cr.outlook.toLowerCase()}">${cr.outlook}</b></div><div class="muted small">Last ${cr.days} days, ${symbol()}. Outlook compares the last 7 days with the 7 before.</div></div></div>
-       ${bar('CONSISTENCY', cr.parts.consistency, 40, `${cr.studied}/${cr.days} days studied`)}
-       ${bar('TARGET', cr.parts.target, 30, `${cr.hit}/${cr.days} days hit ${s.dailyGoalHours || 0}h`)}
+       ${bar('CONSISTENCY', cr.parts.consistency, 40, `${cr.studied}/${cr.counted} days studied${cr.rest ? ` · ${cr.rest} rest day${cr.rest === 1 ? '' : 's'} excluded` : ''}`)}
+       ${bar('TARGET', cr.parts.target, 30, `${cr.hit}/${cr.counted} days hit ${s.dailyGoalHours || 0}h`)}
        ${bar('CAMERA', cr.parts.camera, 15, 'share of time verified')}
        ${bar('STREAK', cr.parts.streak, 15, `${st.streak} day streak`)}`;
   return panel('CREDIT RATING', `${body}<p class="muted small cr-scale">AAA ≥90 · AA ≥80 · A ≥70 · BBB ≥60 · BB ≥50 · B ≥40 · CCC below</p>`);
@@ -62,7 +62,7 @@ function quote(st) {
   const pct = prev > 0 ? (todayH / prev) * 100 : 0;
   const exam = examCountdown();
   const remaining = Math.max(0, s.goalHours - totalH);
-  const req = exam && exam.days > 0 ? (remaining / exam.days).toFixed(2) : '—';
+  const req = exam && exam.days > 0 ? (remaining / Math.max(1, exam.studyDays)).toFixed(2) : '—';
   const mods = st.topics.reduce((a, t) => ({ done: a.done + t.done, total: a.total + t.total }), { done: 0, total: 0 });
 
   const cell = (k, v, cls = '') => `<div class="qcell"><span class="k">${k}</span><span class="v ${cls}">${v}</span></div>`;

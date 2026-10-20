@@ -36,6 +36,24 @@ const SWITCH = {
 const WRAP_QS = [['wrapFocus', 'FOCUS 1–5'], ['wrapNotes', 'WHAT I COVERED'], ['wrapModule', 'MODULE'], ['wrapQuestions', 'QUESTIONS']];
 const PRESETS = [[25, 5, 15], [50, 10, 20], [90, 15, 30]];
 
+const WEEK = [[1, 'MON'], [2, 'TUE'], [3, 'WED'], [4, 'THU'], [5, 'FRI'], [6, 'SAT'], [0, 'SUN']];
+
+// Rest days: weekday chips, a today button, and upcoming specific dates.
+function restHTML(s) {
+  const today = dayKey(Date.now());
+  const dates = (s.restDates || []).filter((d) => d >= today).sort();
+  const todayRest = (s.restDates || []).includes(today);
+  return `
+    <div class="sw-text"><b>Rest days</b><span class="muted small">Planned days off never break your streak or lower your credit rating.</span></div>
+    <div class="wrap-qs">${WEEK.map(([n, label]) => `<label class="chip"><input type="checkbox" name="rw-${n}" ${(s.restWeekdays || []).includes(n) ? 'checked' : ''}><span>${label}</span></label>`).join('')}</div>
+    <div class="row rest-dates">
+      <button type="button" class="btn small ${todayRest ? 'primary' : ''}" data-rest="today">☾ ${todayRest ? 'TODAY IS A REST DAY ✓' : 'MAKE TODAY A REST DAY'}</button>
+      <input type="date" name="restAdd" min="${today}" aria-label="Add a rest date">
+      <button type="button" class="btn small" data-rest="add">+ ADD DATE</button>
+      ${dates.filter((d) => d !== today).map((d) => `<span class="chip-x">${new Date(d + 'T00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' }).toUpperCase()} <button type="button" class="icon" data-rest-del="${d}" title="Remove">✕</button></span>`).join('')}
+    </div>`;
+}
+
 function field(s, k) {
   const [label, type, attrs] = FIELD[k];
   return `<label>${label}<input name="${k}" type="${type}" value="${esc(s[k] ?? '')}" ${Object.entries(attrs).map(([a, v]) => `${a}="${v}"`).join(' ')}></label>`;
@@ -71,6 +89,7 @@ export function renderSettings(root) {
             ${field(s, 'dailyGoalHours')}
             ${field(s, 'scoreTarget')}
           </div>
+          <div class="rest">${restHTML(s)}</div>
         </section>
 
         <section class="panel">
@@ -171,10 +190,45 @@ export function renderSettings(root) {
     clearTimeout(flash.t);
     flash.t = setTimeout(() => { el.hidden = true; }, 1600);
   };
+  const redrawRest = () => { $('.rest', root).innerHTML = restHTML(store.doc.settings); };
+  const setRest = (fn) => {
+    const st = store.doc.settings;
+    fn(st);
+    st.u = Date.now();
+    save();
+    redrawRest();
+    flash();
+  };
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rest], [data-rest-del]');
+    if (!btn) return;
+    const today = dayKey(Date.now());
+    if (btn.dataset.restDel) return setRest((st) => { st.restDates = (st.restDates || []).filter((d) => d !== btn.dataset.restDel); });
+    if (btn.dataset.rest === 'today') {
+      return setRest((st) => {
+        const list = st.restDates || [];
+        st.restDates = list.includes(today) ? list.filter((d) => d !== today) : [...list, today];
+      });
+    }
+    const v = $('[name="restAdd"]', root).value;
+    if (v) setRest((st) => { st.restDates = [...new Set([...(st.restDates || []), v])]; });
+  });
+
   form.addEventListener('change', (e) => {
     const el = e.target;
     const k = el.name;
     const st = store.doc.settings; // re-read: a sync may have replaced it since render
+    if (k === 'restAdd') return;
+    if (k.startsWith('rw-')) {
+      const n = Number(k.slice(3));
+      const set = new Set(st.restWeekdays || []);
+      if (el.checked) set.add(n); else set.delete(n);
+      st.restWeekdays = [...set];
+      st.u = Date.now();
+      save();
+      flash();
+      return;
+    }
     if (el.type === 'checkbox') st[k] = el.checked;
     else if (el.type === 'number') {
       const [, , attrs] = FIELD[k];
@@ -199,6 +253,21 @@ export function renderSettings(root) {
     flash();
   }));
   syncSubs();
+
+  // Synced data can arrive after the page is drawn: refresh the values shown,
+  // except the field you're typing in.
+  const refreshValues = () => {
+    const st = store.doc.settings;
+    form.querySelectorAll('input[name], select[name]').forEach((el) => {
+      if (el === document.activeElement || !(el.name in st)) return;
+      if (el.type === 'checkbox') el.checked = st[el.name] !== false;
+      else el.value = st[el.name] ?? '';
+    });
+    form.querySelectorAll('input[name^="rw-"]').forEach((el) => { el.checked = (st.restWeekdays || []).includes(Number(el.name.slice(3))); });
+    if (!$('.rest', root).contains(document.activeElement)) redrawRest();
+    syncSubs();
+  };
+  const offValues = subscribe(refreshValues);
 
   $('.pass-form', root).addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -268,7 +337,7 @@ export function renderSettings(root) {
   $('[data-act="install"]', root).addEventListener('click', promptInstall);
   const offInstall = onInstallChange(showInstall);
   const offSync = subscribe(showSync);
-  return () => { offInstall(); offSync(); };
+  return () => { offInstall(); offSync(); offValues(); };
 }
 
 // Checks each link in the sync chain and says how to fix the first broken one.

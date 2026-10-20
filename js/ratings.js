@@ -6,6 +6,8 @@
 //   share < 75% of target  → UNDERWEIGHT · BUY   (study it more)
 //   share > 133% of target → OVERWEIGHT · TRIM   (you could ease off)
 //   otherwise              → MARKET WEIGHT · HOLD
+import { isRestDay } from './model.js';
+
 const MIN_HOURS_TO_RATE = 3;
 
 export function weightMid(weight) {
@@ -82,19 +84,22 @@ function windowScore(sessions, endDay, days, dailyGoalSec, streak) {
     total += s.sec;
     if (s.verified) verified += s.sec;
   }
-  let studied = 0, hit = 0;
+  let studied = 0, hit = 0, rest = 0;
   for (let i = 0; i < days; i++) {
-    const sec = byDay.get(dayKeyOf(endDay - i * DAY_MS)) || 0;
+    const ts = endDay - i * DAY_MS;
+    const sec = byDay.get(dayKeyOf(ts)) || 0;
+    if (sec === 0 && isRestDay(ts)) { rest++; continue; } // planned day off: not held against you
     if (sec > 0) studied++;
     if (dailyGoalSec ? sec >= dailyGoalSec : sec > 0) hit++;
   }
+  const counted = Math.max(1, days - rest);
   const parts = {
-    consistency: (studied / days) * 40,
-    target: (hit / days) * 30,
+    consistency: (studied / counted) * 40,
+    target: (hit / counted) * 30,
     camera: total ? (verified / total) * 15 : 0,
     streak: (Math.min(streak, days) / days) * 15,
   };
-  return { score: Object.values(parts).reduce((a, b) => a + b, 0), parts, studied, hit, days };
+  return { score: Object.values(parts).reduce((a, b) => a + b, 0), parts, studied, hit, days, rest, counted };
 }
 
 // st: stats() for the level; dailyGoalHours from settings.
@@ -112,7 +117,7 @@ export function creditRating(st, dailyGoalHours) {
   const recent = windowScore(st.sessions, end, 7, goal, st.streak).score;
   const prior = windowScore(st.sessions, end - 7 * DAY_MS, 7, goal, st.streak).score;
   const outlook = recent - prior > 8 ? 'POSITIVE' : recent - prior < -8 ? 'NEGATIVE' : 'STABLE';
-  return { grade: gradeOf(main.score), score: main.score, outlook, parts: main.parts, studied: main.studied, hit: main.hit, days: WINDOW };
+  return { grade: gradeOf(main.score), score: main.score, outlook, parts: main.parts, studied: main.studied, hit: main.hit, days: WINDOW, rest: main.rest, counted: main.counted };
 }
 
 // stats().byDay uses util.dayKey (YYYY-MM-DD).
