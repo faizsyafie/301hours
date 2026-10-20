@@ -44,7 +44,7 @@ export function renderStudy(root) {
     <div class="study">
       <div class="main-col">
       <section class="panel timer-panel" data-phase="${timer.phase}">
-        <div class="phead"><span>SESSION</span><span class="muted">SPACE OPEN/HALT · S SKIP · R RESET · F FOCUS · P POP OUT</span></div>
+        <div class="phead"><span>SESSION</span><span class="muted keys" title="Space: open / halt · S: skip · R: reset · F: focus mode · P: pop out">⌨ SPACE · S · R · F · P</span></div>
         <div class="seg" role="tablist">
           ${Object.entries(PHASES).map(([k, v]) => `<button type="button" role="tab" data-phase="${k}" aria-selected="${k === timer.phase}">${v}</button>`).join('')}
         </div>
@@ -61,7 +61,6 @@ export function renderStudy(root) {
         <div class="popout-row">
           <button type="button" class="btn small" data-act="focus" title="Full-screen countdown (F)">⛶ FOCUS MODE</button>
           <button type="button" class="btn small" data-act="popout" title="${miniMode === 'pip' ? 'Always-on-top mini window (P)' : 'Small separate window (P)'}">⧉ POP OUT MINI-TERMINAL</button>
-          <span class="note">${miniMode === 'pip' ? 'Mini-terminal stays on top of other windows.' : 'Mini-terminal: pinning on top needs Chrome or Edge.'}</span>
         </div>
         <div class="fields">
           <label>TOPIC<select name="topic">${topicOptions(timer.topicId)}</select></label>
@@ -102,24 +101,30 @@ export function renderStudy(root) {
             <button type="button" class="btn" data-act="camera"></button>
             <label class="check"><input type="checkbox" name="hidePreview" ${hidePreview() ? 'checked' : ''}> HIDE VIDEO</label>
           </div>
-          <p class="note">The clock only runs while you're at the desk. Leave for more than <b>${s.graceSec}s</b> and trading halts until you're back. Breaks don't need the camera. It needs a confident face, or your body confirmed by two separate models, so chairs don't count. With PHONE CHECK on, a phone in frame halts the clock too. Detection runs on this device; no video is uploaded or stored.</p>
-          <p class="note">Keep this tab visible. Browsers throttle background tabs, so a separate window works best.</p>
+          <details class="info">
+            <summary>ⓘ HOW IT WORKS</summary>
+            <ul>
+              <li>The clock runs only while you're in frame; away for ${s.graceSec}s+ halts it. Breaks don't need the camera.</li>
+              <li>A chair or coat won't count: it needs a face, or your body confirmed by two models. A phone in frame halts it too.</li>
+              <li>Runs on this device; no video is uploaded. Keep this tab visible (or pop out the mini-terminal).</li>
+            </ul>
+          </details>
         </section>
 
-        <section class="panel">
-          <div class="phead"><span>FOCUS SOUND</span><span class="muted">PLAYS DURING STUDY BLOCKS · MUTES ON BREAKS</span></div>
-          <div class="row ambient-row">
+        <section class="panel extras">
+          <div class="seg extras-tabs" role="tablist">
+            <button type="button" role="tab" data-tab="sound" aria-selected="true">♪ FOCUS SOUND</button>
+            <button type="button" role="tab" data-tab="log" aria-selected="false">+ LOG TIME</button>
+          </div>
+          <div class="extras-pane" data-pane="sound">
+          <div class="row ambient-row" title="Plays during study blocks, mutes on breaks">
             <select name="ambient">${Object.entries(MODES).map(([k, v]) => `<option value="${k}" ${k === ambient.mode ? 'selected' : ''}>${v}</option>`).join('')}</select>
             <label class="vol">VOL <input type="range" name="ambVol" min="0" max="100" value="${ambient.volume}"></label>
             <button type="button" class="btn small" data-act="preview">▶ PREVIEW</button>
           </div>
-        </section>
-
-        <section class="panel">
-          <details class="manual">
-            <summary class="phead"><span>OFF-DESK ENTRY</span><span class="muted">LOG TIME MANUALLY ▾</span></summary>
-            <p class="note">For study away from the camera, like the commute. It's flagged MAN on the tape.</p>
-            <form class="manual-form">
+          </div>
+          <div class="extras-pane" data-pane="log" hidden>
+            <form class="manual-form" title="Study away from the camera, e.g. the commute. Flagged MAN on the tape.">
               <div class="fields">
                 <label>TOPIC<select name="mtopic">${topicOptions(timer.topicId)}</select></label>
                 <label>DATE<input type="date" name="mdate" value="${dayKey(Date.now())}" max="${dayKey(Date.now())}"></label>
@@ -128,17 +133,22 @@ export function renderStudy(root) {
               <button class="btn" type="submit">BOOK IT</button>
               <span class="note saved" hidden>Booked.</span>
             </form>
-          </details>
+          </div>
         </section>
       </div>
     </div>`;
+
+  root.querySelectorAll('.extras-tabs [data-tab]').forEach((b) => b.addEventListener('click', () => {
+    root.querySelectorAll('.extras-tabs [data-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    root.querySelectorAll('.extras-pane').forEach((pane) => { pane.hidden = pane.dataset.pane !== b.dataset.tab; });
+  }));
 
   const camEl = $('.cam', root);
   camEl.prepend(video);
   video.play().catch(() => {});
 
 
-  root.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.phase)));
+  root.querySelectorAll('.timer-panel .seg button').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.phase)));
   $('[data-act="toggle"]', root).addEventListener('click', toggle);
   $('[data-act="skip"]', root).addEventListener('click', skip);
   $('[data-act="restart"]', root).addEventListener('click', restart);
@@ -247,7 +257,7 @@ export function renderStudy(root) {
     const settings = store.doc.settings;
     const panel = $('.timer-panel', root);
     panel.dataset.phase = timer.phase;
-    root.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.phase === timer.phase)));
+    root.querySelectorAll('.timer-panel .seg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.phase === timer.phase)));
 
     const total = phaseLengthSec();
     const left = remainingSec();

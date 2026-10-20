@@ -6,6 +6,7 @@ import { notice, ask } from './dialog.js';
 import { resetProgress } from './reset.js';
 import { showSignIn, signOut, deleteCloudData } from './account.js';
 import { isInstalled, isIOS, canPrompt, promptInstall, onInstallChange } from './install.js';
+import { skinPicker, setSkin } from './skin.js';
 
 // Number/date fields: [key, label, type, attrs]
 const FIELD = {
@@ -139,7 +140,8 @@ export function renderSettings(root) {
           <ul class="diag" hidden></ul>
         </section>
         <section class="panel">
-          <div class="phead"><span>APP</span></div>
+          <div class="phead"><span>APP</span><span class="muted">THEME IS SAVED ON THIS DEVICE</span></div>
+          ${skinPicker()}
           <p class="note install-text"></p>
           <div class="row"><button type="button" class="btn" data-act="install" hidden>INSTALL APP</button></div>
         </section>
@@ -347,6 +349,10 @@ export function renderSettings(root) {
   };
   showInstall();
   $('[data-act="install"]', root).addEventListener('click', promptInstall);
+  root.querySelectorAll('[data-skin]').forEach((b) => b.addEventListener('click', () => {
+    setSkin(b.dataset.skin);
+    root.querySelectorAll('[data-skin]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  }));
   const offInstall = onInstallChange(showInstall);
   const offSync = subscribe(showSync);
   return () => { offInstall(); offSync(); offValues(); };

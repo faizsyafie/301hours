@@ -26,6 +26,7 @@ export function toast({ kind = 'info', title, body = '', timeout = 9000, action 
     ${action ? `<div class="toast-act"><button type="button" class="btn small">${esc(action.label)}</button></div>` : ''}
     <div class="toast-bar" style="animation-duration:${timeout}ms"></div>`;
   const c = container();
+  // Newest sits at the bottom (closest to the corner); the oldest drops off the top.
   c.prepend(el);
   while (c.children.length > MAX) c.lastElementChild.remove();
 

@@ -72,8 +72,8 @@ export function planPanel() {
   const topics = levelTopics();
   return `
     <div class="phead"><span>STUDY PLAN · ORDER BOOK</span><span class="muted">${list.length ? `${list.length} BLOCK${list.length === 1 ? '' : 'S'} QUEUED` : 'EMPTY'}</span></div>
-    <div class="row plan-auto"><button type="button" class="btn small primary" data-plan="auto" title="Build today's plan from reviews due, underweight topics and low accuracy">⚡ AUTO-PLAN TODAY</button><span class="muted small">reviews due · underweight topics · weak accuracy</span></div>
-    ${list.length ? `<ol class="plan">${rows}</ol>` : '<p class="note">Queue up today\'s blocks, or let AUTO-PLAN pick them. Each new study block loads the next one automatically.</p>'}
+    <div class="row plan-auto"><button type="button" class="btn small primary" data-plan="auto" title="Build today's plan from reviews due, underweight topics and low accuracy">⚡ AUTO-PLAN TODAY</button></div>
+    ${list.length ? `<ol class="plan">${rows}</ol>` : '<p class="note">Queue blocks, or let AUTO-PLAN pick them. Each block loads the next.</p>'}
     <div class="plan-add">
       <select name="planTopic"><option value="">GEN · General study</option>${topics.map((t) => `<option value="${esc(t.id)}">${esc(tickerOf(t))} · ${esc(t.name)}</option>`).join('')}</select>
       <select name="planItem"><option value="">Whole topic</option></select>

@@ -42,7 +42,8 @@ function route() {
   current = name;
   cleanup = render(view, new URLSearchParams(query || ''));
   $$('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.route === name));
-  document.title = name === 'dashboard' ? `${symbol()} · 301 TERMINAL` : `${name.toUpperCase()} · 301 TERMINAL`;
+  pageTitle = name === 'dashboard' ? `${symbol()} · 301 TERMINAL` : `${name.toUpperCase()} · 301 TERMINAL`;
+  updateTitle();
   updateHeader();
 }
 
@@ -67,6 +68,24 @@ function updateHeader() {
   const level = currentLevel();
   $$('.levels button').forEach((b) => b.setAttribute('aria-checked', String(Number(b.dataset.level) === level)));
   updateMiniTimer();
+}
+
+// Tab title: the running clock while a block or break is on, so it's visible
+// from other tabs; otherwise the page name.
+let pageTitle = '301 TERMINAL';
+function updateTitle() {
+  let t = pageTitle;
+  if (timer.gate) t = `◆ BREAK LOCKED · ${pageTitle}`;
+  else if (timer.running || timer.elapsedMs > 0) {
+    const topic = store.doc.topics.find((x) => x.id === timer.topicId);
+    const tk = topic ? (topic.ticker || topic.name.slice(0, 4).toUpperCase()) : 'GEN';
+    const time = clock(remainingSec());
+    if (timer.phase !== 'study') t = `◆ BREAK ${time} · 301`;
+    else if (!timer.running) t = `❚❚ ${time} · ${tk} · 301`;
+    else if (!timer.counting) t = `■ HALT ${time} · ${tk} · 301`;
+    else t = `▶ ${time} · ${tk} · 301`;
+  }
+  if (document.title !== t) document.title = t;
 }
 
 function updateMiniTimer() {
@@ -226,6 +245,7 @@ subscribe(() => {
 });
 
 onTimer(updateMiniTimer);
+onTimer(updateTitle);
 onAlert(toast);
 window.addEventListener('hashchange', route);
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#0b0b0a">
   <title>301 TERMINAL</title>
   <meta name="description" content="CFA study tracker: hours banked, a desk-cam Pomodoro and a curriculum watchlist.">
@@ -15,18 +15,22 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <script>
+    // Apply the saved colour theme before the page paints (no flash).
+    try { const k = localStorage.getItem('301hours:skin'); if (k && k !== 'amber') document.documentElement.dataset.skin = k; } catch (e) {}
+  </script>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#/"><span class="brand-box">301</span><span class="brand-word">TERMINAL</span></a>
     <nav class="nav">
-      <a href="#/" data-route="dashboard"><kbd>1</kbd>DASH</a>
-      <a href="#/study" data-route="study"><kbd>2</kbd>STUDY</a>
-      <a href="#/topics" data-route="topics"><kbd>3</kbd>TOPICS</a>
-      <a href="#/earnings" data-route="earnings"><kbd>4</kbd>EARNINGS</a>
-      <a href="#/settings" data-route="settings"><kbd>5</kbd>SETUP</a>
-      <button type="button" class="nav-about" data-about><kbd>6</kbd>ABOUT</button>
+      <a href="#/" data-route="dashboard"><kbd>1</kbd><span class="nav-g" aria-hidden="true">▤</span>DASH</a>
+      <a href="#/study" data-route="study"><kbd>2</kbd><span class="nav-g" aria-hidden="true">◷</span>STUDY</a>
+      <a href="#/topics" data-route="topics"><kbd>3</kbd><span class="nav-g" aria-hidden="true">☰</span>TOPICS</a>
+      <a href="#/earnings" data-route="earnings"><kbd>4</kbd><span class="nav-g" aria-hidden="true">▲</span>EARNINGS</a>
+      <a href="#/settings" data-route="settings"><kbd>5</kbd><span class="nav-g" aria-hidden="true">⚙</span>SETUP</a>
+      <button type="button" class="nav-about" data-about><kbd>6</kbd><span class="nav-g" aria-hidden="true">ⓘ</span>ABOUT</button>
     </nav>
     <div class="topbar-right">
       <div class="levels" role="radiogroup" aria-label="CFA level">
