@@ -7,33 +7,44 @@ import { resetProgress } from './reset.js';
 import { showSignIn, signOut, deleteCloudData } from './account.js';
 import { isInstalled, isIOS, canPrompt, promptInstall, onInstallChange } from './install.js';
 
-const FIELDS = [
-  ['goalHours', 'TARGET HOURS (PER LEVEL)', 'number', { min: 1, max: 2000 }],
-  ['dailyGoalHours', 'DAILY TARGET (HOURS)', 'number', { min: 0, max: 16, step: 0.5 }],
-  ['examDate', 'EXAM DATE', 'date', {}],
-  ['studyMin', 'STUDY BLOCK (MIN)', 'number', { min: 1, max: 180 }],
-  ['shortMin', 'SHORT BREAK (MIN)', 'number', { min: 1, max: 60 }],
-  ['longMin', 'LONG BREAK (MIN)', 'number', { min: 1, max: 120 }],
-  ['longEvery', 'LONG BREAK EVERY N BLOCKS', 'number', { min: 1, max: 12 }],
-  ['graceSec', 'SECONDS AWAY BEFORE HALT', 'number', { min: 1, max: 120 }],
-  ['scoreTarget', 'PRACTICE SCORE TARGET (%)', 'number', { min: 1, max: 100 }],
-];
+// Number/date fields: [key, label, type, attrs]
+const FIELD = {
+  goalHours: ['TARGET HOURS', 'number', { min: 1, max: 2000 }],
+  dailyGoalHours: ['DAILY TARGET (H)', 'number', { min: 0, max: 16, step: 0.5 }],
+  examDate: ['EXAM DATE', 'date', {}],
+  scoreTarget: ['SCORE TARGET (%)', 'number', { min: 1, max: 100 }],
+  studyMin: ['STUDY (MIN)', 'number', { min: 1, max: 180 }],
+  shortMin: ['BREAK (MIN)', 'number', { min: 1, max: 60 }],
+  longMin: ['LONG BREAK (MIN)', 'number', { min: 1, max: 120 }],
+  longEvery: ['LONG BREAK EVERY', 'number', { min: 1, max: 12 }],
+  graceSec: ['HALT AFTER (S AWAY)', 'number', { min: 1, max: 120 }],
+};
 
-const TOGGLES = [
-  ['presence', 'Only count study time while I\'m at the desk (camera)'],
-  ['phoneCheck', 'Halt the clock while a phone is in frame (camera)'],
-  ['wakeLock', 'Keep the screen awake while the timer runs'],
-  ['breakCards', 'Show flashcards during breaks'],
-  ['wrapUp', 'Show a wrap-up after each study block'],
-  ['wrapFocus', '└ Wrap-up asks: how focused were you (1–5)'],
-  ['wrapNotes', '└ Wrap-up asks: what did you cover'],
-  ['wrapModule', '└ Wrap-up asks: which module, and is it finished'],
-  ['wrapQuestions', '└ Wrap-up asks: practice questions answered'],
-  ['autoStartBreak', 'Start breaks automatically'],
-  ['autoStartStudy', 'Start study blocks automatically after breaks'],
-  ['alerts', 'Show alerts when blocks and breaks start or end'],
-  ['sound', 'Play a sound when a block or break ends'],
-];
+// On/off switches: [key, title, hint]
+const SWITCH = {
+  autoStartBreak: ['Auto-start breaks', 'Breaks begin as soon as a block ends'],
+  autoStartStudy: ['Auto-start study blocks', 'The next block begins when a break ends'],
+  presence: ['Presence check', 'The clock only runs while you\'re in frame'],
+  phoneCheck: ['Phone check', 'A phone in frame halts the clock'],
+  alerts: ['Alerts', 'Pop-ups when blocks and breaks start or end'],
+  sound: ['Sounds', 'Bell, cash register and warnings'],
+  wakeLock: ['Keep screen awake', 'While the timer runs'],
+  breakCards: ['Break flashcards', 'Show a card during breaks'],
+  wrapUp: ['End-of-block wrap-up', 'A quick check-in after each block'],
+};
+
+const WRAP_QS = [['wrapFocus', 'FOCUS 1–5'], ['wrapNotes', 'WHAT I COVERED'], ['wrapModule', 'MODULE'], ['wrapQuestions', 'QUESTIONS']];
+const PRESETS = [[25, 5, 15], [50, 10, 20], [90, 15, 30]];
+
+function field(s, k) {
+  const [label, type, attrs] = FIELD[k];
+  return `<label>${label}<input name="${k}" type="${type}" value="${esc(s[k] ?? '')}" ${Object.entries(attrs).map(([a, v]) => `${a}="${v}"`).join(' ')}></label>`;
+}
+
+function sw(s, k) {
+  const [title, hint] = SWITCH[k];
+  return `<label class="sw"><span class="sw-text"><b>${title}</b><span class="muted small">${hint}</span></span><input type="checkbox" name="${k}" ${s[k] !== false ? 'checked' : ''}><span class="sw-ui" aria-hidden="true"></span></label>`;
+}
 
 const SYNC_TEXT = {
   synced: 'Synced. Your data is saved to your Vercel database and shows up on every device.',
@@ -47,20 +58,44 @@ const SYNC_TEXT = {
 export function renderSettings(root) {
   const s = store.doc.settings;
   root.innerHTML = `
-    <div class="page-head"><h1>SETUP</h1></div>
+    <div class="page-head"><h1>SETUP</h1><span class="saved-flash up small" hidden>✓ SAVED</span></div>
     <div class="grid-2">
-      <section class="panel">
-        <div class="phead"><span>TARGETS &amp; TIMER</span></div>
-        <form class="settings-form">
+      <div class="settings-form">
+        <section class="panel">
+          <div class="phead"><span>GOALS</span></div>
           <div class="fields">
             <label>LEVEL<select name="level">${[1, 2, 3].map((l) => `<option value="${l}" ${l === (s.level || 1) ? 'selected' : ''}>CFA LEVEL ${'I'.repeat(l)}</option>`).join('')}</select></label>
-            <label>L3 PATHWAY<select name="pathway">${Object.entries(PATHWAYS).map(([k, v]) => `<option value="${k}" ${k === s.pathway ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-            ${FIELDS.map(([k, label, type, attrs]) => `<label>${label}<input name="${k}" type="${type}" value="${esc(s[k])}" ${Object.entries(attrs).map(([a, v]) => `${a}="${v}"`).join(' ')}></label>`).join('')}
+            ${(s.level || 1) === 3 ? `<label>PATHWAY<select name="pathway">${Object.entries(PATHWAYS).map(([k, v]) => `<option value="${k}" ${k === s.pathway ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
+            ${field(s, 'examDate')}
+            ${field(s, 'goalHours')}
+            ${field(s, 'dailyGoalHours')}
+            ${field(s, 'scoreTarget')}
           </div>
-          ${TOGGLES.map(([k, label]) => `<label class="check"><input type="checkbox" name="${k}" ${s[k] ? 'checked' : ''}> ${label}</label>`).join('')}
-          <div class="row"><button class="btn primary" type="submit">SAVE</button><span class="note saved" hidden>Saved.</span></div>
-        </form>
-      </section>
+        </section>
+
+        <section class="panel">
+          <div class="phead"><span>TIMER</span></div>
+          <div class="presets">${PRESETS.map(([a, b, c]) => `<button type="button" class="btn small" data-preset="${a},${b},${c}">${a}/${b}</button>`).join('')}<span class="muted small">one tap: study / break minutes</span></div>
+          <div class="fields fields-4">
+            ${field(s, 'studyMin')}${field(s, 'shortMin')}${field(s, 'longMin')}${field(s, 'longEvery')}
+          </div>
+          ${sw(s, 'autoStartBreak')}${sw(s, 'autoStartStudy')}
+        </section>
+
+        <section class="panel">
+          <div class="phead"><span>DESK CAM</span></div>
+          ${sw(s, 'presence')}
+          <div class="sw-sub fields">${field(s, 'graceSec')}</div>
+          ${sw(s, 'phoneCheck')}
+        </section>
+
+        <section class="panel">
+          <div class="phead"><span>ALERTS &amp; EXTRAS</span></div>
+          ${sw(s, 'alerts')}${sw(s, 'sound')}${sw(s, 'wakeLock')}${sw(s, 'breakCards')}
+          ${sw(s, 'wrapUp')}
+          <div class="sw-sub wrap-qs"><span class="muted small">ASKS:</span>${WRAP_QS.map(([k, label]) => `<label class="chip"><input type="checkbox" name="${k}" ${s[k] !== false ? 'checked' : ''}><span>${label}</span></label>`).join('')}</div>
+        </section>
+      </div>
 
       <div>
         <section class="panel">
@@ -121,27 +156,49 @@ export function renderSettings(root) {
   });
   showSync();
 
-  $('.settings-form', root).addEventListener('submit', (e) => {
-    e.preventDefault();
-    const f = e.target;
-    const s = store.doc.settings; // re-read: a sync may have replaced it since render
-    for (const [k, , type] of FIELDS) {
-      const v = f[k].value;
-      if (type === 'number') {
-        const n = Number(v);
-        if (Number.isFinite(n) && n >= 0) s[k] = n;
-      } else {
-        s[k] = v;
-      }
-    }
-    for (const [k] of TOGGLES) s[k] = f[k].checked;
-    s.level = Number(f.level.value) || 1;
-    s.pathway = f.pathway.value;
-    s.u = Date.now();
-    save({ immediate: true });
-    $('.saved', f).hidden = false;
-    setTimeout(() => { $('.saved', f).hidden = true; }, 2500);
+  // Changes save as you make them.
+  const form = $('.settings-form', root);
+  const syncSubs = () => {
+    const st = store.doc.settings;
+    $('.wrap-qs', root).hidden = st.wrapUp === false;
+    $('[name="graceSec"]', root).closest('.sw-sub').hidden = st.presence === false;
+    const cur = `${st.studyMin},${st.shortMin}`;
+    root.querySelectorAll('[data-preset]').forEach((b) => b.classList.toggle('primary', b.dataset.preset.startsWith(cur + ',')));
+  };
+  const flash = () => {
+    const el = $('.saved-flash', root);
+    el.hidden = false;
+    clearTimeout(flash.t);
+    flash.t = setTimeout(() => { el.hidden = true; }, 1600);
+  };
+  form.addEventListener('change', (e) => {
+    const el = e.target;
+    const k = el.name;
+    const st = store.doc.settings; // re-read: a sync may have replaced it since render
+    if (el.type === 'checkbox') st[k] = el.checked;
+    else if (el.type === 'number') {
+      const [, , attrs] = FIELD[k];
+      const n = Number(el.value);
+      if (!Number.isFinite(n) || el.value === '') { el.value = st[k]; return; }
+      st[k] = Math.min(attrs.max ?? Infinity, Math.max(attrs.min ?? 0, n));
+      el.value = st[k];
+    } else if (k === 'level') st.level = Number(el.value) || 1;
+    else st[k] = el.value;
+    st.u = Date.now();
+    save();
+    syncSubs();
+    flash();
   });
+  root.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
+    const [study, brk, long] = b.dataset.preset.split(',').map(Number);
+    const st = store.doc.settings;
+    Object.assign(st, { studyMin: study, shortMin: brk, longMin: long, u: Date.now() });
+    for (const [k, v] of [['studyMin', study], ['shortMin', brk], ['longMin', long]]) $(`[name="${k}"]`, root).value = v;
+    save();
+    syncSubs();
+    flash();
+  }));
+  syncSubs();
 
   $('.pass-form', root).addEventListener('submit', async (e) => {
     e.preventDefault();
