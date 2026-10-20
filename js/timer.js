@@ -16,6 +16,7 @@ const WARN_SEC = 60;
 const listeners = new Set();
 const alertListeners = new Set();
 const blockEndListeners = new Set();
+const blockStartListeners = new Set();
 
 export const timer = {
   phase: 'study',      // 'study' | 'short' | 'long'
@@ -35,6 +36,12 @@ export const timer = {
 let lastTick = 0;
 let lastFlush = 0;
 let warned = false;
+
+// Fired just before a fresh study block starts (for the study plan).
+export function onBlockStart(fn) {
+  blockStartListeners.add(fn);
+  return () => blockStartListeners.delete(fn);
+}
 
 // Fired when a study block ends with at least a minute logged (for the wrap-up).
 export function onBlockEnd(fn) {
@@ -275,6 +282,7 @@ function finishPhase() {
   } else {
     const auto = st.autoStartStudy !== false;
     enterPhase('study', auto);
+    for (const fn of blockStartListeners) fn();
     if (auto) {
       if (st.presence && presence.state !== 'ready' && presence.state !== 'loading') startCamera();
       announce('study', '● MARKET OPEN · STUDY BLOCK STARTS', st.presence
@@ -289,7 +297,10 @@ function finishPhase() {
 export function start() {
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
   lastTick = Date.now();
-  if (timer.phase === 'study' && !timer.elapsedMs) chime('open');
+  if (timer.phase === 'study' && !timer.elapsedMs) {
+    for (const fn of blockStartListeners) fn();
+    chime('open');
+  }
   timer.running = true;
   emit();
 }

@@ -595,3 +595,16 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .focus-mode[data-state="away"] .fm-status { animation: blink 1.2s steps(2) infinite; }
 .fm-bottom { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .fm-target { display: flex; align-items: center; gap: 10px; flex: 1; max-width: 520px; font-size: 0.85rem; }
+
+/* ---------- Study plan ---------- */
+.main-col { min-width: 0; }
+.plan { list-style: none; margin: 0 0 10px; padding: 0; }
+.plan li { display: grid; grid-template-columns: 44px 52px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px dashed var(--line); font-size: 0.85rem; color: var(--dim); }
+.plan li.next { color: var(--text); }
+.plan .pl-n { font-size: 0.68rem; letter-spacing: 0.08em; color: var(--muted); }
+.plan li.next .pl-n { color: var(--bg); background: var(--green); text-align: center; font-weight: 700; }
+.plan .pl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan .pl-act { display: flex; }
+.plan .icon:disabled { opacity: 0.25; cursor: default; }
+.plan-add { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.plan-add select[name="planTopic"], .plan-add select[name="planItem"] { flex: 1 1 160px; min-width: 0; }

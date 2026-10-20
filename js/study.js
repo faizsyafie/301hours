@@ -2,6 +2,7 @@ import { store, save, subscribe } from './store.js';
 import { timer, onTimer, toggle, skip, restart, switchTo, setTopic, phaseLengthSec, remainingSec } from './timer.js';
 import { openMini, miniMode } from './pip.js';
 import { toggleFocus, targetLine, isFocusMode } from './focus.js';
+import { planPanel, wirePlan, bindPlanSelects } from './plan.js';
 import { ambient, MODES, setMode, setVolume, preview } from './ambient.js';
 import { presence, onPresence, startCamera, stopCamera, isPresent, video } from './presence.js';
 import { levelTopics, currentLevel, sessionLevel, tickerOf, stats } from './model.js';
@@ -40,6 +41,7 @@ export function renderStudy(root) {
   const s = store.doc.settings;
   root.innerHTML = `
     <div class="study">
+      <div class="main-col">
       <section class="panel timer-panel" data-phase="${timer.phase}">
         <div class="phead"><span>SESSION</span><span class="muted">SPACE OPEN/HALT · S SKIP · R RESET · F FOCUS · P POP OUT</span></div>
         <div class="seg" role="tablist">
@@ -74,6 +76,8 @@ export function renderStudy(root) {
           <div><span class="k">PICKUPS</span><span class="v pickups"></span></div>
         </div>
       </section>
+      <section class="panel plan-panel"></section>
+      </div>
 
       <div class="side">
         <section class="panel cam-panel">
@@ -148,6 +152,24 @@ export function renderStudy(root) {
     itemSel.disabled = !topicSel.value;
   });
   itemSel.disabled = !timer.topicId;
+
+  // Study plan panel.
+  const planEl = $('.plan-panel', root);
+  const drawPlan = () => {
+    // Keep the half-filled "add" row when redrawing.
+    const keep = ['planTopic', 'planItem', 'planCount'].map((n) => planEl.querySelector(`[name="${n}"]`)?.value);
+    planEl.innerHTML = planPanel();
+    bindPlanSelects(planEl);
+    const [t, i, c] = keep;
+    if (t !== undefined) {
+      planEl.querySelector('[name="planTopic"]').value = t;
+      planEl.querySelector('[name="planTopic"]').dispatchEvent(new Event('change'));
+      if (i) planEl.querySelector('[name="planItem"]').value = i;
+      if (c) planEl.querySelector('[name="planCount"]').value = c;
+    }
+  };
+  drawPlan();
+  wirePlan(planEl, drawPlan);
 
   // Analyst pick: the most underweight topic, one click to study it.
   const showPick = () => {
@@ -244,6 +266,14 @@ export function renderStudy(root) {
     $('.blocks', root).textContent = String(timer.completed);
     $('.away-time', root).textContent = clock(timer.awayMs / 1000);
     $('.target-row', root).innerHTML = targetLine();
+    // The plan (or another device) may have switched topic: keep the menus in step.
+    if (topicSel.value !== timer.topicId) {
+      topicSel.value = timer.topicId;
+      itemSel.innerHTML = moduleOptions(timer.topicId);
+      itemSel.disabled = !timer.topicId;
+      showPick();
+    }
+    if (itemSel.value !== timer.itemId && timer.topicId) itemSel.value = timer.itemId;
     $('.walkouts', root).textContent = String(timer.walkouts);
     $('.pickups', root).textContent = String(timer.pickups);
 
@@ -296,7 +326,7 @@ export function renderStudy(root) {
 
   update();
   let lastPhase = timer.phase;
-  const offs = [onTimer(update), onPresence(update), subscribe(showPick), subscribe(() => update()), onTimer(() => { if (timer.phase !== lastPhase) { lastPhase = timer.phase; showPick(); } })];
+  const offs = [onTimer(update), onPresence(update), subscribe(showPick), subscribe(() => update()), subscribe(() => { if (!planEl.contains(document.activeElement)) drawPlan(); }), onTimer(() => { if (timer.phase !== lastPhase) { lastPhase = timer.phase; showPick(); } })];
   return () => {
     offs.forEach((off) => off());
     document.removeEventListener('keydown', onKey);
