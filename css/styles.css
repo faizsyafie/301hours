@@ -544,3 +544,12 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .signin-hero .brand-box { font-size: 1.3rem; padding: 4px 10px; }
 .gbtn { min-height: 44px; display: flex; justify-content: center; align-items: center; margin: 6px 0 10px; }
 .signin-privacy { border-top: 1px solid var(--line); padding-top: 8px; margin: 10px 0 12px; }
+
+/* ---------- Phone check ---------- */
+.cam-box.phone-box { border-color: var(--red); }
+.cam-box.phone-box::before { content: "PHONE"; background: var(--red); }
+.onair[data-state="phone"] { color: var(--red); border-color: var(--red); }
+.onair[data-state="phone"] .lamp { background: var(--red); animation: blink 0.6s steps(2) infinite; }
+.cam[data-state="phone"] { border-color: var(--red); }
+.kv-row { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 640px) { .kv-row { grid-template-columns: repeat(3, 1fr); } }

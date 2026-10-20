@@ -62,8 +62,8 @@ export function mountMini(doc) {
     let state;
     if (!timer.running) state = 'idle';
     else if (timer.phase !== 'study') state = 'break';
-    else state = timer.counting ? 'on' : 'away';
-    $('.mini').dataset.state = state;
+    else state = timer.counting ? 'on' : timer.halt === 'phone' ? 'phone' : 'away';
+    $('.mini').dataset.state = state === 'phone' ? 'away' : state;
     $('.mini-phase').textContent = LABEL[timer.phase];
     const topic = store.doc.topics.find((t) => t.id === timer.topicId);
     $('.mini-tk').textContent = timer.phase === 'study' ? (topic ? tickerOf(topic) : 'GEN') : '';
@@ -74,6 +74,7 @@ export function mountMini(doc) {
       break: '◆ MARKET CLOSED · BREAK',
       on: '● MARKET OPEN',
       away: '■ HALTED · AWAY FROM DESK',
+      phone: '■ HALTED · PHONE IN HAND',
     }[state];
     $('[data-act="toggle"]').textContent = timer.running ? '■ HALT' : '▶ OPEN';
     const cam = !s.presence ? 'off' : presence.state !== 'ready' ? 'off' : presence.seen ? 'seen' : isPresent(s.graceSec) ? 'grace' : 'away';

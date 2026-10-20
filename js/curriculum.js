@@ -288,6 +288,7 @@ export const DEFAULT_SETTINGS = {
   longEvery: 4,
   graceSec: 6,
   presence: true,
+  phoneCheck: true,
   autoStartBreak: true,
   autoStartStudy: true,
   alerts: true,

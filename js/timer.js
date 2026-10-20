@@ -1,7 +1,7 @@
 // Pomodoro state machine. Study blocks only advance while you're at the desk
 // (when the presence check is on); breaks run on the wall clock.
 import { store, save } from './store.js';
-import { isPresent, onPresence, presence, startCamera } from './presence.js';
+import { isPresent, onPresence, presence, startCamera, setPhoneCheckSource } from './presence.js';
 import { uid, dayKey } from './util.js';
 import { play } from './sounds.js';
 
@@ -23,6 +23,8 @@ export const timer = {
   awayMs: 0,           // time paused because nobody was in frame (this block)
   completed: 0,        // study blocks finished since the page was opened
   walkouts: 0,         // times the clock halted because you left the frame
+  pickups: 0,          // times the clock halted because a phone was in frame
+  halt: '',            // why a running study block isn't counting: 'away' | 'phone' | ''
   counting: false,     // whether the clock is currently advancing
   topicId: '',
   itemId: '',
@@ -45,6 +47,8 @@ function announce(kind, title, body, sound) {
   notify(title.replace(/^[^A-Z0-9]+/, ''), body);
 }
 
+setPhoneCheckSource(() => Boolean(store.doc) && store.doc.settings.phoneCheck !== false);
+
 const breakName = (phase) => (phase === 'long' ? 'long break' : 'short break');
 
 export function onTimer(fn) {
@@ -62,7 +66,7 @@ function emit() {
 // close picks up where it left off.
 const TIMER_KEY = '301hours:timer';
 const RESTORE_WITHIN_MS = 6 * 3600000;
-const SAVED = ['phase', 'running', 'elapsedMs', 'awayMs', 'completed', 'walkouts', 'topicId', 'itemId', 'sessionId'];
+const SAVED = ['phase', 'running', 'elapsedMs', 'awayMs', 'completed', 'walkouts', 'pickups', 'topicId', 'itemId', 'sessionId'];
 let lastPersist = 0;
 
 function persist() {
@@ -162,8 +166,25 @@ function flushSession(close) {
   save({ immediate: close });
 }
 
+// Why the clock shouldn't run right now ('' = it should).
+function haltReason() {
+  const st = settings();
+  if (st.presence && !isPresent(st.graceSec)) return 'away';
+  if (st.phoneCheck !== false && presence.state === 'ready' && presence.phone) return 'phone';
+  return '';
+}
+
+function updateCounting() {
+  const reason = haltReason();
+  if (timer.running && timer.phase === 'study' && reason && reason !== timer.halt) {
+    if (reason === 'phone') timer.pickups += 1;
+  }
+  timer.halt = reason;
+  setCounting(!reason);
+}
+
 function setCounting(on) {
-  if (timer.counting && !on && timer.running && timer.phase === 'study' && settings().presence) timer.walkouts += 1;
+  if (timer.counting && !on && timer.running && timer.phase === 'study' && timer.halt === 'away') timer.walkouts += 1;
   timer.counting = on;
 }
 
@@ -174,7 +195,7 @@ function tick() {
   if (!timer.running) return;
 
   if (timer.phase === 'study') {
-    setCounting(!settings().presence || isPresent(settings().graceSec));
+    updateCounting();
     if (timer.counting) {
       const s = currentSession() || openSession(now);
       timer.elapsedMs += step;
@@ -302,6 +323,7 @@ export function resetTimer() {
   timer.sessionId = '';
   timer.completed = 0;
   timer.walkouts = 0;
+  timer.pickups = 0;
   enterPhase('study', false);
   emit();
 }
@@ -317,7 +339,7 @@ export function setTopic(topicId, itemId = '') {
 // Re-evaluate on every detection result so the UI reacts immediately.
 onPresence(() => {
   if (timer.running && timer.phase === 'study') {
-    setCounting(!settings().presence || isPresent(settings().graceSec));
+    updateCounting();
     emit();
   }
 });

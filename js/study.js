@@ -66,8 +66,9 @@ export function renderStudy(root) {
         <div class="kv-row">
           <div><span class="k">TODAY</span><span class="v today"></span></div>
           <div><span class="k">BLOCKS</span><span class="v blocks"></span></div>
-          <div><span class="k">AWAY</span><span class="v away-time"></span></div>
+          <div><span class="k">HALTED</span><span class="v away-time"></span></div>
           <div><span class="k">WALKOUTS</span><span class="v walkouts"></span></div>
+          <div><span class="k">PICKUPS</span><span class="v pickups"></span></div>
         </div>
       </section>
 
@@ -75,12 +76,16 @@ export function renderStudy(root) {
         <section class="panel cam-panel">
           <div class="phead">
             <span>DESK CAM</span>
-            <label class="switch"><input type="checkbox" name="presence" ${s.presence ? 'checked' : ''}> PRESENCE CHECK</label>
+            <span class="row" style="gap:12px">
+              <label class="switch"><input type="checkbox" name="presence" ${s.presence ? 'checked' : ''}> PRESENCE</label>
+              <label class="switch"><input type="checkbox" name="phoneCheck" ${s.phoneCheck !== false ? 'checked' : ''}> PHONE CHECK</label>
+            </span>
           </div>
           <div class="onair" data-state="off"><span class="lamp"></span><span class="onair-text"></span></div>
           <div class="readout" hidden></div>
           <div class="cam" data-state="off">
             <div class="cam-box" hidden></div>
+            <div class="cam-box phone-box" hidden></div>
             <div class="cam-placeholder"></div>
             <div class="scan"></div>
           </div>
@@ -88,7 +93,7 @@ export function renderStudy(root) {
             <button type="button" class="btn" data-act="camera"></button>
             <label class="check"><input type="checkbox" name="hidePreview" ${hidePreview() ? 'checked' : ''}> HIDE VIDEO</label>
           </div>
-          <p class="note">The clock only runs while you're at the desk. Leave for more than <b>${s.graceSec}s</b> and trading halts until you're back. Breaks don't need the camera. It needs a confident face, or your body and posture confirmed by two separate models, so chairs and coats don't count. Detection runs on this device; no video is uploaded or stored.</p>
+          <p class="note">The clock only runs while you're at the desk. Leave for more than <b>${s.graceSec}s</b> and trading halts until you're back. Breaks don't need the camera. It needs a confident face, or your body confirmed by two separate models, so chairs don't count. With PHONE CHECK on, a phone in frame halts the clock too. Detection runs on this device; no video is uploaded or stored.</p>
           <p class="note">Keep this tab visible. Browsers throttle background tabs, so a separate window works best.</p>
         </section>
 
@@ -167,6 +172,12 @@ export function renderStudy(root) {
   $('[name="ambient"]', root).addEventListener('change', (e) => { setMode(e.target.value); preview(); });
   $('[name="ambVol"]', root).addEventListener('input', (e) => setVolume(e.target.value));
   $('[data-act="preview"]', root).addEventListener('click', preview);
+  $('[name="phoneCheck"]', root).addEventListener('change', (e) => {
+    store.doc.settings.phoneCheck = e.target.checked;
+    store.doc.settings.u = Date.now();
+    save();
+    update();
+  });
   $('[name="hidePreview"]', root).addEventListener('change', (e) => {
     try { localStorage.setItem(PREVIEW_KEY, e.target.checked ? '1' : '0'); } catch { /* ignore */ }
     update();
@@ -214,6 +225,7 @@ export function renderStudy(root) {
       state = timer.elapsedMs ? '■ HALTED · PAUSED' : timer.phase === 'study' ? '○ PRE-MARKET · PRESS SPACE TO OPEN' : '◆ BREAK READY';
     } else if (timer.phase !== 'study') { state = '◆ MARKET CLOSED · BREAK'; cls = 'break'; }
     else if (timer.counting) { state = '● MARKET OPEN'; cls = 'on'; }
+    else if (timer.halt === 'phone') { state = '■ HALTED · PHONE IN HAND · PUT IT DOWN'; cls = 'away'; }
     else if (settings.presence && presence.state !== 'ready') { state = presence.state === 'loading' ? '… CONNECTING DESK CAM' : '■ HALTED · DESK CAM OFFLINE'; cls = 'away'; }
     else { state = '■ TRADING HALTED · TRADER AWAY FROM DESK'; cls = 'away'; }
     const statusEl = $('.status', root);
@@ -226,11 +238,13 @@ export function renderStudy(root) {
     $('.blocks', root).textContent = String(timer.completed);
     $('.away-time', root).textContent = clock(timer.awayMs / 1000);
     $('.walkouts', root).textContent = String(timer.walkouts);
+    $('.pickups', root).textContent = String(timer.pickups);
 
     // Desk cam
     const hide = hidePreview();
     const present = isPresent(settings.graceSec);
-    const camState = presence.state !== 'ready' ? presence.state : presence.seen ? 'seen' : present ? 'grace' : 'away';
+    const phoneOn = settings.phoneCheck !== false && presence.state === 'ready' && presence.phone;
+    const camState = presence.state !== 'ready' ? presence.state : phoneOn ? 'phone' : presence.seen ? 'seen' : present ? 'grace' : 'away';
     camEl.dataset.state = camState;
     camEl.classList.toggle('hidden-preview', hide);
     const onair = $('.onair', root);
@@ -242,6 +256,7 @@ export function renderStudy(root) {
       seen: 'AT DESK',
       grace: 'LOOKING FOR YOU…',
       away: 'AWAY FROM DESK',
+      phone: 'PHONE IN HAND',
     }[camState];
     $('.cam-placeholder', root).textContent = presence.state === 'ready' && hide ? 'VIDEO HIDDEN · STILL WATCHING' : presence.state === 'off' ? 'NO SIGNAL' : '';
     $('[data-act="camera"]', root).textContent = presence.state === 'off' || presence.state === 'error' ? 'CAM ON' : 'CAM OFF';
@@ -251,7 +266,7 @@ export function renderStudy(root) {
     if (presence.state === 'ready') {
       const sc = presence.scores;
       const val = (v) => (v ? v.toFixed(2) : '—');
-      readout.innerHTML = `FACE <b class="${sc.face >= 0.6 ? 'up' : ''}">${val(sc.face)}</b> · BODY <b class="${sc.person >= 0.5 ? 'up' : ''}">${val(sc.person)}</b> · POSE <b class="${sc.pose ? 'up' : ''}">${sc.pose ? 'MATCH' : '—'}</b> · VIA <b>${presence.reason ? presence.reason.toUpperCase() : '—'}</b>`;
+      readout.innerHTML = `${settings.phoneCheck !== false ? `PHONE <b class="${sc.phone >= 0.4 ? 'down' : ''}">${val(sc.phone)}</b> · ` : ''}FACE <b class="${sc.face >= 0.6 ? 'up' : ''}">${val(sc.face)}</b> · BODY <b class="${sc.person >= 0.5 ? 'up' : ''}">${val(sc.person)}</b> · POSE <b class="${sc.pose ? 'up' : ''}">${sc.pose ? 'MATCH' : '—'}</b> · VIA <b>${presence.reason ? presence.reason.toUpperCase() : '—'}</b>`;
     }
 
     const box = $('.cam-box', root);
@@ -261,6 +276,14 @@ export function renderStudy(root) {
       box.hidden = false;
     } else {
       box.hidden = true;
+    }
+    const pbox = $('.phone-box', root);
+    if (phoneOn && presence.phoneBox && !hide) {
+      const b = presence.phoneBox;
+      Object.assign(pbox.style, { left: `${(1 - b.x - b.w) * 100}%`, top: `${b.y * 100}%`, width: `${b.w * 100}%`, height: `${b.h * 100}%` });
+      pbox.hidden = false;
+    } else {
+      pbox.hidden = true;
     }
   }
 
