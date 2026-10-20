@@ -46,6 +46,8 @@ export function weekReport(offset = 0) {
   const reports = levelScores(level).filter((r) => r.date >= from && r.date < to);
   const acc = accuracy(reports);
   const goal = (store.doc.settings.dailyGoalHours || 0) * 3600;
+  const rated = sessions.filter((x) => x.focus);
+  const focusAvg = rated.length ? rated.reduce((a, x) => a + x.focus, 0) / rated.length : null;
   return {
     level, from, to, sec, prevSec, verified, days, best, topRows, modules,
     reviews: reviewsBetween(from, to),
@@ -53,6 +55,7 @@ export function weekReport(offset = 0) {
     studied: days.filter((d) => d.sec > 0).length,
     targetHits: goal ? days.filter((d) => d.sec >= goal).length : null,
     rating: creditRating(st, store.doc.settings.dailyGoalHours),
+    focusAvg,
     partial: offset === 0,
   };
 }
@@ -85,6 +88,7 @@ function html(r) {
         ${kv('QUESTIONS', r.questions || '—')}
         ${kv('ACCURACY', r.accuracy === null ? '—' : `${r.accuracy.toFixed(1)}%`, r.accuracy === null ? '' : r.accuracy >= (store.doc.settings.scoreTarget || 70) ? 'up' : 'down')}
         ${kv('CREDIT RATING', r.rating.grade + (r.rating.outlook ? ` · ${r.rating.outlook}` : ''))}
+        ${kv('AVG FOCUS', r.focusAvg === null ? '—' : `${r.focusAvg.toFixed(1)}/5`)}
       </div>
       <div class="tenk-seg"><span class="k">SEGMENTS · TOP TOPICS</span>${r.topRows.length ? r.topRows.map((t) => `<div><b class="tk">${esc(t.ticker)}</b> ${esc(t.name)} <span class="num">${duration(t.sec)}</span></div>`).join('') : '<div class="muted">No study logged this week.</div>'}</div>
       <div class="row end"><button type="button" class="btn" data-save>SAVE AS IMAGE ↓</button></div>

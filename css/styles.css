@@ -553,3 +553,15 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .cam[data-state="phone"] { border-color: var(--red); }
 .kv-row { grid-template-columns: repeat(5, 1fr); }
 @media (max-width: 640px) { .kv-row { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---------- Wrap-up ---------- */
+.wu-q { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.wu-q .k { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; }
+.wu-q input[name="note"] { width: 100%; }
+.wu-q input[type="number"] { width: 90px; }
+.wu-q select { max-width: 100%; flex: 1 1 260px; }
+.wu-focus { display: flex; align-items: center; gap: 6px; }
+.wu-focus .btn { width: 38px; }
+.focus-dots { color: var(--amber); font-size: 0.6rem; letter-spacing: 1px; white-space: nowrap; }
+.notes-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; }
+.notes-list li { padding: 8px 0; border-bottom: 1px dashed var(--line); }

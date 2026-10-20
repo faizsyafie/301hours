@@ -300,9 +300,9 @@ function tape(st) {
     ? recent.map((s) => {
       const t = topics.get(s.topicId);
       const flag = s.manual ? 'MAN' : s.verified ? 'CAM' : 'NOCAM';
-      return `<tr><td class="muted">${shortDate(s.start).toUpperCase()} ${timeOfDay(s.start)}</td><td class="tk">${t ? esc(tickerOf(t)) : 'GEN'}</td><td class="num up">${duration(s.sec)}</td><td class="flag flag-${flag.toLowerCase()}">${flag}</td></tr>`;
+      return `<tr${s.note ? ` title="${esc(s.note)}"` : ''}><td class="muted">${shortDate(s.start).toUpperCase()} ${timeOfDay(s.start)}</td><td class="tk">${t ? esc(tickerOf(t)) : 'GEN'}</td><td class="num up">${duration(s.sec)}</td><td class="focus-dots" title="${s.focus ? `Focus ${s.focus}/5` : ''}">${s.focus ? '●'.repeat(s.focus) : ''}${s.note ? ' ✎' : ''}</td><td class="flag flag-${flag.toLowerCase()}">${flag}</td></tr>`;
     }).join('')
-    : '<tr><td colspan="4" class="muted empty">NO TRADES YET. THE CURRICULUM ISN\'T GOING TO READ ITSELF.</td></tr>';
+    : '<tr><td colspan="5" class="muted empty">NO TRADES YET. THE CURRICULUM ISN\'T GOING TO READ ITSELF.</td></tr>';
   return `
     <section class="panel">
       <div class="phead"><span>TIME &amp; SALES</span><span class="muted">LAST 10</span></div>

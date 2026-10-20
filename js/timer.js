@@ -15,6 +15,7 @@ const WARN_SEC = 60;
 
 const listeners = new Set();
 const alertListeners = new Set();
+const blockEndListeners = new Set();
 
 export const timer = {
   phase: 'study',      // 'study' | 'short' | 'long'
@@ -34,6 +35,12 @@ export const timer = {
 let lastTick = 0;
 let lastFlush = 0;
 let warned = false;
+
+// Fired when a study block ends with at least a minute logged (for the wrap-up).
+export function onBlockEnd(fn) {
+  blockEndListeners.add(fn);
+  return () => blockEndListeners.delete(fn);
+}
 
 // Phase-change alerts: { kind: 'study' | 'break' | 'warn', title, body }.
 export function onAlert(fn) {
@@ -253,8 +260,11 @@ function enterPhase(phase, autoStart) {
 function finishPhase() {
   const st = settings();
   if (timer.phase === 'study') {
+    const ended = currentSession();
+    const block = ended && { sessionId: ended.id, topicId: ended.topicId, itemId: ended.itemId, sec: ended.sec, pickups: timer.pickups, walkouts: timer.walkouts };
     flushSession(true);
     timer.completed += 1;
+    if (block && block.sec >= 60) for (const fn of blockEndListeners) fn({ ...block, number: timer.completed });
     const next = timer.completed % st.longEvery === 0 ? 'long' : 'short';
     const auto = st.autoStartBreak !== false;
     enterPhase(next, auto);
