@@ -2,7 +2,10 @@ import { store, save, sync, subscribe, setPasscode, getPasscode } from './store.
 import { mergeDocs } from '../lib/merge.js';
 import { $, esc, dayKey } from './util.js';
 import { PATHWAYS } from './curriculum.js';
-import { notice } from './dialog.js';
+import { notice, ask } from './dialog.js';
+import { resetProgress } from './reset.js';
+import { showSignIn, signOut, deleteCloudData } from './account.js';
+import { isInstalled, isIOS, canPrompt, promptInstall, onInstallChange } from './install.js';
 
 const FIELDS = [
   ['goalHours', 'TARGET HOURS (PER LEVEL)', 'number', { min: 1, max: 2000 }],
@@ -13,6 +16,7 @@ const FIELDS = [
   ['longMin', 'LONG BREAK (MIN)', 'number', { min: 1, max: 120 }],
   ['longEvery', 'LONG BREAK EVERY N BLOCKS', 'number', { min: 1, max: 12 }],
   ['graceSec', 'SECONDS AWAY BEFORE HALT', 'number', { min: 1, max: 120 }],
+  ['scoreTarget', 'PRACTICE SCORE TARGET (%)', 'number', { min: 1, max: 100 }],
 ];
 
 const TOGGLES = [
@@ -29,6 +33,7 @@ const SYNC_TEXT = {
   offline: 'Can\'t reach the server right now. Changes are kept in this browser and will sync later.',
   locked: 'Locked. Enter your passcode to sync.',
   local: 'Not synced. Data is saved in this browser only.',
+  signedout: 'Not signed in. Progress is saved on this device only.',
 };
 
 export function renderSettings(root) {
@@ -54,12 +59,18 @@ export function renderSettings(root) {
           <div class="phead"><span>SYNC</span></div>
           <p class="sync-text"></p>
           <p class="note sync-msg"></p>
+          <div class="acct-row row"></div>
           <form class="pass-form row">
             <input name="code" type="password" placeholder="PASSCODE" value="${esc(getPasscode())}" autocomplete="current-password">
             <button class="btn" type="submit">SAVE &amp; SYNC</button>
           </form>
           <div class="row" style="margin-top:10px"><button type="button" class="btn" data-act="diagnose">RUN DIAGNOSTICS</button></div>
           <ul class="diag" hidden></ul>
+        </section>
+        <section class="panel">
+          <div class="phead"><span>APP</span></div>
+          <p class="note install-text"></p>
+          <div class="row"><button type="button" class="btn" data-act="install" hidden>INSTALL APP</button></div>
         </section>
         <section class="panel">
           <div class="phead"><span>BACKUP</span></div>
@@ -69,13 +80,37 @@ export function renderSettings(root) {
             <label class="btn">LOAD FILE<input type="file" accept="application/json,.json" name="import" hidden></label>
           </div>
         </section>
+        <section class="panel danger-zone">
+          <div class="phead"><span>RESET PROGRESS</span><span class="muted">CAN'T BE UNDONE · DOWNLOAD A BACKUP FIRST</span></div>
+          <p class="note">Clears logged hours, module ticks and reviews, practice scores, milestones and ratings. Keeps your topic and module names, settings and passcode. Syncs to your other devices.</p>
+          <div class="row">
+            <select name="resetScope">
+              <option value="level">This level only (Level ${['I', 'II', 'III'][(s.level || 1) - 1]})</option>
+              <option value="all">All levels (I, II and III)</option>
+            </select>
+            <button type="button" class="btn danger" data-act="reset">RESET PROGRESS…</button>
+          </div>
+        </section>
       </div>
     </div>`;
 
   const showSync = () => {
     $('.sync-text', root).textContent = SYNC_TEXT[store.status] || '';
-    $('.sync-msg', root).textContent = store.message;
+    $('.sync-msg', root).textContent = store.status === 'signedout' ? '' : store.message;
+    const google = store.authMode === 'google';
+    $('.pass-form', root).hidden = google;
+    const acct = $('.acct-row', root);
+    acct.hidden = !google;
+    acct.innerHTML = !google ? '' : store.user
+      ? `<span class="note" style="margin:0">Signed in as <b>${esc(store.user.email)}</b></span><button type="button" class="btn small" data-act="signout">SIGN OUT</button><button type="button" class="btn small danger" data-act="delete-cloud">DELETE MY CLOUD DATA</button>`
+      : '<button type="button" class="btn primary" data-act="signin">SIGN IN WITH GOOGLE</button>';
   };
+  root.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'signin') showSignIn();
+    else if (act === 'signout') signOut();
+    else if (act === 'delete-cloud') deleteCloudData();
+  });
   showSync();
 
   $('.settings-form', root).addEventListener('submit', (e) => {
@@ -114,6 +149,24 @@ export function renderSettings(root) {
     list.innerHTML = rows.map(([ok, label, fix]) => `<li class="${ok === true ? 'ok' : ok === false ? 'bad' : 'warn'}"><b>${ok === true ? '✓' : ok === false ? '✗' : '!'}</b> ${esc(label)}${fix ? `<div class="fix">${esc(fix)}</div>` : ''}</li>`).join('');
   });
 
+  $('[data-act="reset"]', root).addEventListener('click', async () => {
+    const all = $('[name="resetScope"]', root).value === 'all';
+    const level = store.doc.settings.level || 1;
+    const what = all ? 'ALL LEVELS' : `LEVEL ${['I', 'II', 'III'][level - 1]}`;
+    const typed = await ask(`RESET ${what}`, {
+      hint: `This deletes hours, module ticks, reviews, scores, milestones and ratings for ${all ? 'every level' : `Level ${['I', 'II', 'III'][level - 1]}`}. Type RESET to confirm.`,
+      placeholder: 'RESET',
+      okLabel: 'RESET PROGRESS',
+    });
+    if (typed === null) return;
+    if (typed.trim().toUpperCase() !== 'RESET') {
+      await notice('RESET CANCELLED', 'Nothing was changed. Type RESET exactly to confirm.');
+      return;
+    }
+    const n = resetProgress(all ? [1, 2, 3] : [level]);
+    await notice('PROGRESS RESET', `${what}: ${n.sessions} sessions, ${n.modules} module ticks and ${n.scores} score reports cleared. Fresh start.`);
+  });
+
   $('[data-act="export"]', root).addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(store.doc, null, 2)], { type: 'application/json' });
     const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `301hours-backup-${dayKey(Date.now())}.json` });
@@ -135,7 +188,22 @@ export function renderSettings(root) {
     }
   });
 
-  return subscribe(showSync);
+  const showInstall = () => {
+    const btn = $('[data-act="install"]', root);
+    btn.hidden = !canPrompt() || isInstalled();
+    $('.install-text', root).textContent = isInstalled()
+      ? 'Installed. You\'re running 301 TERMINAL as an app.'
+      : canPrompt()
+        ? 'Install 301 TERMINAL as an app: its own icon and window, no browser bar, and it opens even offline.'
+        : isIOS()
+          ? 'To install: tap Share in Safari, then "Add to Home Screen".'
+          : 'To install, use your browser\'s menu: "Install 301 TERMINAL" or "Add to Home screen". (Chrome and Edge show it in the address bar.)';
+  };
+  showInstall();
+  $('[data-act="install"]', root).addEventListener('click', promptInstall);
+  const offInstall = onInstallChange(showInstall);
+  const offSync = subscribe(showSync);
+  return () => { offInstall(); offSync(); };
 }
 
 // Checks each link in the sync chain and says how to fix the first broken one.
@@ -167,6 +235,16 @@ async function diagnose() {
     rows.push(health.databaseReachable
       ? [true, 'Database answers.', '']
       : [false, `Database not reachable: ${health.error}`, 'Reconnect the database in Vercel → Storage, then redeploy.']);
+  }
+
+  if (health.authMode === 'google' || health.googleClientIdSet || health.sessionSecretSet) {
+    rows.push(health.googleClientIdSet ? [true, 'GOOGLE_CLIENT_ID is set.', ''] : [false, 'GOOGLE_CLIENT_ID is not set.', 'Create an OAuth client ID in Google Cloud (see README → Accounts) and add it in Vercel, then redeploy.']);
+    rows.push(health.sessionSecretSet ? [true, 'SESSION_SECRET is set.', ''] : [false, 'SESSION_SECRET is not set.', 'Add a long random value as SESSION_SECRET in Vercel, then redeploy.']);
+    if (health.authMode === 'google') {
+      rows.push(health.signedIn ? [true, `Signed in${store.user ? ` as ${store.user.email}` : ''}.`, ''] : [false, 'Not signed in on this device.', 'Press SIGN IN. If Google shows "origin not allowed", add this site\'s address under Authorized JavaScript origins in your Google OAuth client.']);
+      if (health.allowList) rows.push([null, 'Sign-in is limited to ALLOWED_EMAILS.', '']);
+    }
+    return rows;
   }
 
   rows.push(health.passcodeSet

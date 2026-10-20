@@ -293,8 +293,9 @@ export const DEFAULT_SETTINGS = {
   alerts: true,
   sound: true,
   celebrated: [],
+  scoreTarget: 70,
 };
 
 export function defaultDoc() {
-  return { v: 1, updatedAt: 0, settings: { ...DEFAULT_SETTINGS }, topics: defaultTopics(), sessions: [] };
+  return { v: 1, updatedAt: 0, settings: { ...DEFAULT_SETTINGS }, topics: defaultTopics(), sessions: [], scores: [] };
 }

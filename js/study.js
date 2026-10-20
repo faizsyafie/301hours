@@ -1,7 +1,10 @@
-import { store, save } from './store.js';
-import { timer, onTimer, start, pause, skip, restart, switchTo, setTopic, phaseLengthSec, remainingSec } from './timer.js';
+import { store, save, subscribe } from './store.js';
+import { timer, onTimer, toggle, skip, restart, switchTo, setTopic, phaseLengthSec, remainingSec } from './timer.js';
+import { openMini, miniMode } from './pip.js';
+import { ambient, MODES, setMode, setVolume, preview } from './ambient.js';
 import { presence, onPresence, startCamera, stopCamera, isPresent, video } from './presence.js';
-import { levelTopics, currentLevel, sessionLevel, tickerOf } from './model.js';
+import { levelTopics, currentLevel, sessionLevel, tickerOf, stats } from './model.js';
+import { analystRatings, topPick } from './ratings.js';
 import { $, esc, clock, duration, uid, dayKey, startOfDay } from './util.js';
 
 const PHASES = { study: 'STUDY', short: 'BREAK', long: 'LONG BREAK' };
@@ -37,7 +40,7 @@ export function renderStudy(root) {
   root.innerHTML = `
     <div class="study">
       <section class="panel timer-panel" data-phase="${timer.phase}">
-        <div class="phead"><span>SESSION</span><span class="muted">SPACE OPEN/HALT · S SKIP · R RESET</span></div>
+        <div class="phead"><span>SESSION</span><span class="muted">SPACE OPEN/HALT · S SKIP · R RESET · P POP OUT</span></div>
         <div class="seg" role="tablist">
           ${Object.entries(PHASES).map(([k, v]) => `<button type="button" role="tab" data-phase="${k}" aria-selected="${k === timer.phase}">${v}</button>`).join('')}
         </div>
@@ -51,10 +54,15 @@ export function renderStudy(root) {
           <button type="button" class="btn primary big" data-act="toggle"></button>
           <button type="button" class="btn" data-act="skip" title="End this block now (S)">SKIP ▸</button>
         </div>
+        <div class="popout-row">
+          <button type="button" class="btn small" data-act="popout" title="${miniMode === 'pip' ? 'Always-on-top mini window (P)' : 'Small separate window (P)'}">⧉ POP OUT MINI-TERMINAL</button>
+          <span class="note">${miniMode === 'pip' ? 'Stays on top of other windows, so you can read your notes and still see the clock.' : 'Opens a small window. Pinning it on top needs Chrome or Edge.'}</span>
+        </div>
         <div class="fields">
           <label>TOPIC<select name="topic">${topicOptions(timer.topicId)}</select></label>
           <label>MODULE<select name="item">${moduleOptions(timer.topicId)}</select></label>
         </div>
+        <div class="pick-row"></div>
         <div class="kv-row">
           <div><span class="k">TODAY</span><span class="v today"></span></div>
           <div><span class="k">BLOCKS</span><span class="v blocks"></span></div>
@@ -85,6 +93,15 @@ export function renderStudy(root) {
         </section>
 
         <section class="panel">
+          <div class="phead"><span>FOCUS SOUND</span><span class="muted">PLAYS DURING STUDY BLOCKS · MUTES ON BREAKS</span></div>
+          <div class="row ambient-row">
+            <select name="ambient">${Object.entries(MODES).map(([k, v]) => `<option value="${k}" ${k === ambient.mode ? 'selected' : ''}>${v}</option>`).join('')}</select>
+            <label class="vol">VOL <input type="range" name="ambVol" min="0" max="100" value="${ambient.volume}"></label>
+            <button type="button" class="btn small" data-act="preview">▶ PREVIEW</button>
+          </div>
+        </section>
+
+        <section class="panel">
           <details class="manual">
             <summary class="phead"><span>OFF-DESK ENTRY</span><span class="muted">LOG TIME MANUALLY ▾</span></summary>
             <p class="note">For study away from the camera, like the commute. It's flagged MAN on the tape.</p>
@@ -106,16 +123,12 @@ export function renderStudy(root) {
   camEl.prepend(video);
   video.play().catch(() => {});
 
-  const toggle = () => {
-    if (timer.running) return pause();
-    if (timer.phase === 'study' && store.doc.settings.presence && presence.state !== 'ready') startCamera();
-    start();
-  };
 
   root.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.phase)));
   $('[data-act="toggle"]', root).addEventListener('click', toggle);
   $('[data-act="skip"]', root).addEventListener('click', skip);
   $('[data-act="restart"]', root).addEventListener('click', restart);
+  $('[data-act="popout"]', root).addEventListener('click', openMini);
   $('[data-act="camera"]', root).addEventListener('click', () => (presence.state === 'off' || presence.state === 'error' ? startCamera() : stopCamera()));
 
   const topicSel = $('[name="topic"]', root);
@@ -126,6 +139,22 @@ export function renderStudy(root) {
     itemSel.disabled = !topicSel.value;
   });
   itemSel.disabled = !timer.topicId;
+
+  // Analyst pick: the most underweight topic, one click to study it.
+  const showPick = () => {
+    const st = stats();
+    const ratings = analystRatings(st.topics);
+    const pick = topPick(st.topics, ratings);
+    const row = $('.pick-row', root);
+    if (!pick || pick.topic.id === timer.topicId || timer.phase !== 'study') { row.innerHTML = ''; return; }
+    row.innerHTML = `<span class="muted">ANALYST PICK</span> <b class="tk">${esc(pick.ticker)}</b> <span class="rating buy">▲ BUY</span> <span class="muted">underweight vs the exam</span> <button type="button" class="btn small" data-act="use-pick">STUDY ${esc(pick.ticker)}</button>`;
+    $('[data-act="use-pick"]', row).addEventListener('click', () => {
+      topicSel.value = pick.topic.id;
+      topicSel.dispatchEvent(new Event('change'));
+    });
+  };
+  showPick();
+  topicSel.addEventListener('change', showPick);
   itemSel.addEventListener('change', () => setTopic(topicSel.value, itemSel.value));
 
   $('[name="presence"]', root).addEventListener('change', (e) => {
@@ -135,6 +164,9 @@ export function renderStudy(root) {
     if (e.target.checked && timer.running && timer.phase === 'study') startCamera();
     update();
   });
+  $('[name="ambient"]', root).addEventListener('change', (e) => { setMode(e.target.value); preview(); });
+  $('[name="ambVol"]', root).addEventListener('input', (e) => setVolume(e.target.value));
+  $('[data-act="preview"]', root).addEventListener('click', preview);
   $('[name="hidePreview"]', root).addEventListener('change', (e) => {
     try { localStorage.setItem(PREVIEW_KEY, e.target.checked ? '1' : '0'); } catch { /* ignore */ }
     update();
@@ -161,6 +193,7 @@ export function renderStudy(root) {
     if (e.code === 'Space') { e.preventDefault(); toggle(); }
     else if (e.key === 's') skip();
     else if (e.key === 'r') restart();
+    else if (e.key === 'p') openMini();
   };
   document.addEventListener('keydown', onKey);
 
@@ -232,7 +265,8 @@ export function renderStudy(root) {
   }
 
   update();
-  const offs = [onTimer(update), onPresence(update)];
+  let lastPhase = timer.phase;
+  const offs = [onTimer(update), onPresence(update), subscribe(showPick), onTimer(() => { if (timer.phase !== lastPhase) { lastPhase = timer.phase; showPick(); } })];
   return () => {
     offs.forEach((off) => off());
     document.removeEventListener('keydown', onKey);

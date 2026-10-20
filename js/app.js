@@ -1,13 +1,18 @@
 import { store, load, subscribe, sync, save, setPasscode } from './store.js';
-import { timer, onTimer, onAlert, remainingSec, setTopic } from './timer.js';
+import { timer, onTimer, onAlert, remainingSec, setTopic, restoreTimer } from './timer.js';
 import { toast } from './toast.js';
 import { renderDashboard, tickerItems, milestonesFor, symbol } from './dashboard.js';
 import { renderStudy } from './study.js';
 import { renderTopics } from './topics.js';
 import { renderSettings } from './settings.js';
+import { renderScores } from './scores.js';
 import { stats, currentLevel } from './model.js';
+import { creditRating, gradeRank, weakest } from './ratings.js';
+import { announceWeekly } from './report.js';
 import { play } from './sounds.js';
 import { showAbout } from './about.js';
+import { initAuth, setupAccountUI, showSignIn } from './account.js';
+import './install.js';
 import { $, $$, clock, esc } from './util.js';
 import { video } from './presence.js';
 
@@ -15,9 +20,10 @@ const ROUTES = {
   '': ['dashboard', renderDashboard],
   study: ['study', renderStudy],
   topics: ['topics', renderTopics],
+  earnings: ['earnings', renderScores],
   settings: ['settings', renderSettings],
 };
-const KEYS = { 1: '#/', 2: '#/study', 3: '#/topics', 4: '#/settings' };
+const KEYS = { 1: '#/', 2: '#/study', 3: '#/topics', 4: '#/earnings', 5: '#/settings' };
 
 let cleanup = null;
 let current = '';
@@ -38,7 +44,7 @@ function route() {
   updateHeader();
 }
 
-const SYNC_LABEL = { synced: 'SYNCED', syncing: 'SYNCING', offline: 'OFFLINE', locked: 'LOCKED', local: 'NOT SYNCED' };
+const SYNC_LABEL = { synced: 'SYNCED', syncing: 'SYNCING', offline: 'OFFLINE', locked: 'LOCKED', local: 'NOT SYNCED', signedout: 'THIS DEVICE' };
 
 function updateSync() {
   const btn = $('.sync');
@@ -46,9 +52,11 @@ function updateSync() {
   btn.textContent = SYNC_LABEL[store.status];
   btn.title = store.message || SYNC_LABEL[store.status];
   const banner = $('.banner');
-  const show = store.status === 'locked' || ((store.status === 'local' || store.status === 'offline') && store.message);
+  const show = store.status === 'locked' || store.status === 'signedout' || ((store.status === 'local' || store.status === 'offline') && store.message);
   banner.hidden = !show;
-  if (show) banner.innerHTML = store.status === 'locked'
+  if (show) banner.innerHTML = store.status === 'signedout'
+    ? `NOT SIGNED IN. Your progress is saved on this device only. <button type="button" class="link" data-signin>SIGN IN</button> to keep it in your account and sync it everywhere.`
+    : store.status === 'locked'
     ? `SYNC LOCKED. ${esc(store.message)} <button type="button" class="link" data-unlock>ENTER PASSCODE</button>`
     : `${esc(store.message)} <a href="https://github.com/faizsyafie/301hours#deploying-to-vercel" target="_blank" rel="noopener">SETUP GUIDE</a>`;
 }
@@ -92,6 +100,28 @@ function checkMilestones() {
   save();
   const [h, headline] = fresh[fresh.length - 1];
   breaking(h, headline);
+}
+
+// ---------- Credit rating changes ----------
+let dataReady = false;
+let announced = false; // true once the first sync attempt has finished
+function checkCredit() {
+  if (!dataReady) return;
+  const s = store.doc.settings;
+  const level = currentLevel();
+  const cr = creditRating(stats(level), s.dailyGoalHours);
+  const prev = (s.creditRatings || {})[level];
+  if (cr.grade === 'NR' || prev === cr.grade) return;
+  s.creditRatings = { ...(s.creditRatings || {}), [level]: cr.grade };
+  s.u = Date.now();
+  save();
+  if (!prev) {
+    toast({ kind: 'study', title: `◆ INITIAL RATING · ${symbol()} RATED ${cr.grade}`, body: `Outlook ${cr.outlook.toLowerCase()}. Tap RATING on the dashboard to see how it's calculated.` });
+  } else if (gradeRank(cr.grade) < gradeRank(prev)) {
+    toast({ kind: 'study', title: `▲ UPGRADED · ${prev} → ${cr.grade}`, body: `${symbol()} upgraded on stronger consistency. Outlook ${cr.outlook.toLowerCase()}.` });
+  } else {
+    toast({ kind: 'warn', title: `▼ DOWNGRADED · ${prev} → ${cr.grade}`, body: `Main driver: ${weakest(cr.parts)}. Outlook ${cr.outlook.toLowerCase()}.` });
+  }
 }
 
 function breaking(h, headline) {
@@ -156,7 +186,8 @@ document.addEventListener('click', (e) => {
     save();
     return;
   }
-  if (e.target.closest('[data-unlock]') || (e.target.closest('.sync') && store.status === 'locked')) askPasscode();
+  if (e.target.closest('[data-signin]') || (e.target.closest('.sync') && store.status === 'signedout')) showSignIn();
+  else if (e.target.closest('[data-unlock]') || (e.target.closest('.sync') && store.status === 'locked')) askPasscode();
   else if (e.target.closest('.sync') && (store.status === 'local' || store.status === 'offline')) location.hash = '#/settings';
   else if (e.target.closest('.sync')) sync();
 });
@@ -164,7 +195,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, select, textarea, dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
   if (KEYS[e.key]) location.hash = KEYS[e.key];
-  else if ((e.key === '5' || e.key === '?') && !document.querySelector('dialog[open]')) showAbout();
+  else if ((e.key === '6' || e.key === '?') && !document.querySelector('dialog[open]')) showAbout();
 });
 
 let lastStatus = null;
@@ -174,6 +205,7 @@ subscribe(() => {
   updateSync();
   if (store.status === 'locked' && lastStatus !== 'locked') askPasscode();
   if (store.status === 'synced' && $('#passcode-dialog').open) $('#passcode-dialog').close('synced');
+  if ((lastStatus === 'syncing' && store.status !== 'syncing') || store.status === 'signedout') dataReady = true;
   lastStatus = store.status;
   const level = currentLevel();
   if (level !== lastLevel) {
@@ -187,6 +219,8 @@ subscribe(() => {
   lastStamp = store.doc.updatedAt;
   updateTape();
   checkMilestones();
+  checkCredit();
+  if (dataReady && !announced) { announced = true; announceWeekly(); }
 });
 
 onTimer(updateMiniTimer);
@@ -198,8 +232,11 @@ tick();
 setInterval(tick, 1000);
 
 $('#cam-holder').append(video);
+await initAuth(); // which sign-in mode is on, and who is signed in (one quick request)
 load(); // reads this browser's copy synchronously, then syncs in the background
 lastStamp = store.doc.updatedAt;
 lastLevel = currentLevel();
+restoreTimer();
 route();
+setupAccountUI();
 updateTape();

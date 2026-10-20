@@ -2,13 +2,19 @@
 // are configured (env var names only, never values) and whether the database
 // answers. Needs no passcode and reveals no data.
 import * as db from '../lib/db.js';
+import { authMode, config, currentUser } from '../lib/auth.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const out = {
     database: db.backend,
     envFound: db.envFound,
-    passcodeSet: Boolean(String(process.env.APP_PASSCODE ?? '').trim()),
+    passcodeSet: config.passcodeSet,
+    authMode,
+    googleClientIdSet: config.googleClientIdSet,
+    sessionSecretSet: config.sessionSecretSet,
+    allowList: config.allowList,
+    signedIn: Boolean(currentUser(req)),
     databaseReachable: null,
     error: '',
     vercelEnv: process.env.VERCEL_ENV || 'local',

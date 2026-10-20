@@ -4,6 +4,9 @@ import { dayKey, startOfDay } from './util.js';
 
 export const DAY = 86400000;
 
+// Stand-in topic for sessions logged as "GEN · General study".
+export const GENERAL = { id: '', name: 'General study', weight: '', items: [] };
+
 export const levelOf = (t) => t.level || 1;
 
 export function tickerOf(t) {
@@ -85,6 +88,18 @@ export function stats(level = currentLevel()) {
     byDay,
     topics,
     generalSec: byTopic.get('') || 0,
+    // General study (no topic) as its own row. Kept out of `topics` so it
+    // never affects module progress or analyst ratings.
+    general: {
+      topic: GENERAL,
+      ticker: 'GEN',
+      sec: byTopic.get('') || 0,
+      week: byTopicWeek.get('') || 0,
+      prevWeek: byTopicPrevWeek.get('') || 0,
+      done: 0,
+      total: 0,
+      general: true,
+    },
   };
 }
 
@@ -102,4 +117,18 @@ export function hourStamps(sessions) {
     }
   }
   return stamps;
+}
+
+// ---------- Practice scores ("earnings") ----------
+export function levelScores(level = currentLevel()) {
+  return (store.doc.scores || []).filter((r) => !r.deleted && (r.level || 1) === level && r.total > 0);
+}
+
+export const pct = (r) => (r.correct / r.total) * 100;
+
+// Aggregate accuracy over reports, optionally since a timestamp.
+export function accuracy(reports, since = 0) {
+  let correct = 0, total = 0;
+  for (const r of reports) if (r.date >= since) { correct += r.correct; total += r.total; }
+  return { correct, total, pct: total ? (correct / total) * 100 : null };
 }

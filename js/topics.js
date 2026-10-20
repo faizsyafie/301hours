@@ -1,7 +1,9 @@
-import { store, save } from './store.js';
+import { store, save, subscribe } from './store.js';
 import { setTopic } from './timer.js';
 import { stats, currentLevel, tickerOf } from './model.js';
 import { PATHWAYS } from './curriculum.js';
+import { analystRatings } from './ratings.js';
+import { revOf, onDoneChange, STAGE_LABEL, act as reviewAct } from './reviews.js';
 import { esc, uid, hours, shortDate } from './util.js';
 import { ask, confirmBox } from './dialog.js';
 
@@ -24,6 +26,16 @@ function touch(obj) {
   obj.u = Date.now();
 }
 
+function revBadge(topic, item) {
+  const rev = revOf(item);
+  if (!rev) return '';
+  if (rev.due === null) return '<span class="rev matured" title="Reviewed after 1, 7 and 30 days">✓ MATURED</span>';
+  if (rev.due < Date.now() + 0) {
+    return `<button type="button" class="rev due" data-review="${esc(topic.id)}|${esc(item.id)}" title="Mark the ${STAGE_LABEL[rev.stage]} review as done">● ${STAGE_LABEL[rev.stage]} REVIEW DUE · DONE?</button>`;
+  }
+  return `<span class="rev" title="Next review">${STAGE_LABEL[rev.stage]} REVIEW ${shortDate(rev.due).toUpperCase()}</span>`;
+}
+
 export function renderTopics(root, params) {
   const open = openSet();
   if (params.get('open')) { open.add(params.get('open')); rememberOpen(open); }
@@ -34,6 +46,7 @@ export function renderTopics(root, params) {
     const done = st.topics.reduce((a, t) => a + t.done, 0);
     const total = st.topics.reduce((a, t) => a + t.total, 0);
     const pathway = store.doc.settings.pathway;
+    const ratings = analystRatings(st.topics);
 
     root.innerHTML = `
       <div class="page-head">
@@ -53,7 +66,7 @@ export function renderTopics(root, params) {
             <summary>
               <span class="tk">${esc(ticker)}</span>
               <span class="name">${esc(topic.name)}</span>
-              <span class="muted wgt">${esc(topic.weight || '')}</span>
+              <span class="muted wgt">${esc(topic.weight || '')} <span class="rating ${ratings.get(topic.id).cls}">${ratings.get(topic.id).icon} ${ratings.get(topic.id).short}</span></span>
               <span class="num hrs">${hours(sec, 2)}H</span>
               <span class="meter"><span style="width:${n ? (d / n) * 100 : 0}%"></span></span>
               <span class="num cnt">${d}/${n}</span>
@@ -63,6 +76,7 @@ export function renderTopics(root, params) {
                 <li data-item="${esc(i.id)}" class="${i.done ? 'done' : ''}">
                   <label class="check"><input type="checkbox" ${i.done ? 'checked' : ''}><span class="idx">${String(idx + 1).padStart(2, '0')}</span><span>${esc(i.name)}</span></label>
                   <span class="muted small">${i.done && i.doneAt ? `CLOSED ${shortDate(i.doneAt).toUpperCase()}` : ''}</span>
+                  ${revBadge(topic, i)}
                   <span class="actions">
                     <button type="button" class="icon" data-act="study-item" title="Study this module">▶</button>
                     <button type="button" class="icon" data-act="rename-item" title="Rename">✎</button>
@@ -83,6 +97,14 @@ export function renderTopics(root, params) {
             </div>
           </details>`).join('')}
       </div>
+      <section class="panel gen-card">
+        <span class="tk">GEN</span>
+        <span class="name">General study <span class="muted small">no topic · mixed revision, formula sheets, mocks</span></span>
+        <span class="num hrs">${hours(st.general.sec, 2)}H</span>
+        <span class="muted small">7D ${hours(st.general.week, 2)}H</span>
+        <span class="rating nr" title="General study has no exam weight, so it isn't rated">· NR</span>
+        <button type="button" class="btn small" data-act="study-gen">▶ STUDY THIS</button>
+      </section>
       <form class="add-topic panel row">
         <input name="name" placeholder="+ new topic, e.g. Mock exams" required>
         <button class="btn" type="submit">LIST IT</button>
@@ -90,6 +112,13 @@ export function renderTopics(root, params) {
   }
 
   draw();
+  // Redraw when synced data arrives, unless you're typing in one of the fields.
+  let stamp = store.doc.updatedAt;
+  const offSync = subscribe(() => {
+    if (store.doc.updatedAt === stamp) return;
+    stamp = store.doc.updatedAt;
+    if (!root.contains(document.activeElement) || document.activeElement.tagName !== 'INPUT') draw();
+  });
 
   root.addEventListener('toggle', (e) => {
     const det = e.target.closest?.('details.topic');
@@ -111,6 +140,7 @@ export function renderTopics(root, params) {
     const item = topic.items.find((i) => i.id === li.dataset.item);
     item.done = e.target.checked;
     item.doneAt = item.done ? Date.now() : null;
+    onDoneChange(item);
     touch(item);
     save();
     draw();
@@ -137,6 +167,13 @@ export function renderTopics(root, params) {
   });
 
   root.addEventListener('click', async (e) => {
+    const rv = e.target.closest('[data-review]');
+    if (rv) {
+      e.preventDefault();
+      const [topicId, itemId] = rv.dataset.review.split('|');
+      reviewAct('reviewed', topicId, itemId);
+      return draw();
+    }
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
     const act = btn.dataset.act;
@@ -144,6 +181,11 @@ export function renderTopics(root, params) {
       for (const t of store.doc.topics) act === 'expand' ? open.add(t.id) : open.delete(t.id);
       rememberOpen(open);
       return draw();
+    }
+    if (act === 'study-gen') {
+      setTopic('', '');
+      location.hash = '#/study';
+      return;
     }
     const det = btn.closest('details');
     const topic = det && findTopic(det.dataset.id);
@@ -191,4 +233,5 @@ export function renderTopics(root, params) {
     save();
     draw();
   });
+  return offSync;
 }

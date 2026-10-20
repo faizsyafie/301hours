@@ -1,6 +1,12 @@
 import { store } from './store.js';
-import { stats, hourStamps, examCountdown, currentLevel, tickerOf, DAY } from './model.js';
+import { stats, hourStamps, examCountdown, currentLevel, tickerOf, levelScores, accuracy, DAY } from './model.js';
 import { MILESTONES } from './curriculum.js';
+import { analystRatings, topPick, ratingMinHours, creditRating } from './ratings.js';
+import { panel } from './dialog.js';
+import { showReport, weekReport } from './report.js';
+import { setTopic } from './timer.js';
+import { schedule, act as reviewAct } from './reviews.js';
+import { heatmapPanel } from './heatmap.js';
 import { esc, hours, duration, dayKey, startOfDay, shortDate, timeOfDay } from './util.js';
 
 const CHART_DAYS = 30;
@@ -21,6 +27,30 @@ export function milestonesFor(goal) {
   const list = MILESTONES.filter(([h]) => h <= goal);
   if (!list.some(([h]) => h === goal)) list.push([goal, `${goal} HOURS. TARGET HIT. ALL-TIME HIGH.`]);
   return list;
+}
+
+export function showCredit() {
+  const st = stats();
+  const s = store.doc.settings;
+  const cr = creditRating(st, s.dailyGoalHours);
+  const bar = (label, val, max, detail) => `
+    <div class="cr-row"><span class="k">${label}</span><div class="cr-track"><div style="width:${(val / max) * 100}%"></div></div><span class="num">${val.toFixed(1)}/${max}</span><span class="muted small">${detail}</span></div>`;
+  const body = cr.grade === 'NR'
+    ? `<p>Not rated yet. Study on ${cr.needDays} more day${cr.needDays === 1 ? '' : 's'} to get your first rating.</p>`
+    : `<div class="cr-head"><span class="cr-grade">${cr.grade}</span><div><div>SCORE <b>${cr.score.toFixed(0)}</b>/100 · OUTLOOK <b class="outlook ${cr.outlook.toLowerCase()}">${cr.outlook}</b></div><div class="muted small">Last ${cr.days} days, ${symbol()}. Outlook compares the last 7 days with the 7 before.</div></div></div>
+       ${bar('CONSISTENCY', cr.parts.consistency, 40, `${cr.studied}/${cr.days} days studied`)}
+       ${bar('TARGET', cr.parts.target, 30, `${cr.hit}/${cr.days} days hit ${s.dailyGoalHours || 0}h`)}
+       ${bar('CAMERA', cr.parts.camera, 15, 'share of time verified')}
+       ${bar('STREAK', cr.parts.streak, 15, `${st.streak} day streak`)}`;
+  return panel('CREDIT RATING', `${body}<p class="muted small cr-scale">AAA ≥90 · AA ≥80 · A ≥70 · BBB ≥60 · BB ≥50 · B ≥40 · CCC below</p>`);
+}
+
+function pickLine(st) {
+  const ratings = analystRatings(st.topics);
+  const pick = topPick(st.topics, ratings);
+  if (!pick) return '';
+  const r = ratings.get(pick.topic.id);
+  return `<a class="top-pick" href="#/study" data-pick="${esc(pick.topic.id)}" title="Study ${esc(pick.topic.name)} next">TOP PICK <b>${esc(pick.ticker)}</b> <span class="rating buy">▲ BUY</span> <span class="muted">${Math.round(r.share * 100)}% of hours vs ${Math.round(r.target * 100)}% of exam</span></a>`;
 }
 
 function quote(st) {
@@ -46,7 +76,11 @@ function quote(st) {
           <span class="chg">${arrow(todayH)} <span class="muted">(${todayH > 0 && prev > 0 ? signed(pct, 1) + '%' : todayH > 0 ? 'IPO' : '0.0%'}) TODAY</span></span>
         </div>
       </div>
-      <a class="btn primary big" href="#/study">OPEN MARKET ▸</a>
+      <div class="quote-side">
+        <a class="btn primary big" href="#/study">OPEN MARKET ▸</a>
+        <button type="button" class="btn small" data-10k>▤ WEEKLY 10-K</button>
+        ${pickLine(st)}
+      </div>
       <div class="qstrip">
         ${cell('TGT', s.goalHours.toFixed(2))}
         ${cell('REM', remaining.toFixed(2))}
@@ -54,8 +88,10 @@ function quote(st) {
         ${cell('REQ/D', req, exam && exam.days > 0 && st.today / 3600 >= Number(req) ? 'up' : '')}
         ${cell('WK', (st.week / 3600).toFixed(2))}
         ${cell('STRK', `${st.streak}D`, st.streak ? 'up' : '')}
+        ${(() => { const cr = creditRating(st, s.dailyGoalHours); return cell('RATING', `<button type="button" class="credit" data-credit title="How this is calculated">${cr.grade}${cr.outlook ? ` <span class="outlook ${cr.outlook.toLowerCase()}">${{ POSITIVE: '▲', NEGATIVE: '▼', STABLE: '■' }[cr.outlook]}</span>` : ''}</button>`); })()}
         ${cell('MODS', `${mods.done}/${mods.total}`)}
         ${cell('CAM', st.total ? `${Math.round((st.verified / st.total) * 100)}%` : '—')}
+        ${(() => { const a30 = accuracy(levelScores(level), Date.now() - 30 * DAY); return cell('ACC 30D', a30.pct === null ? '<a href="#/earnings">LOG</a>' : `${a30.pct.toFixed(1)}%`, a30.pct === null ? '' : a30.pct >= (s.scoreTarget || 70) ? 'up' : 'down'); })()}
       </div>
     </section>`;
 }
@@ -185,9 +221,34 @@ function chartTable(days) {
   }</tbody></table></details>`;
 }
 
+function ratingChip(r) {
+  return `<span class="rating ${r.cls}" title="${r.target === null ? 'No exam weight set' : `${Math.round(r.share * 100)}% of your hours vs ${Math.round(r.target * 100)}% of the exam`}">${r.icon} ${r.short}</span>`;
+}
+
+// General study: its own line, never rated against the exam.
+function genRow(g, reports, tgt) {
+  const a = accuracy(reports.filter((x) => !x.topicId));
+  return `<tr class="gen-row" title="Study logged as GEN · General study, not tied to a topic. Counts towards your total, not towards any topic or rating.">
+      <td class="tk">GEN</td>
+      <td class="nm">General study <span class="muted small">no topic</span></td>
+      <td class="num">${hours(g.sec, 2)}</td>
+      <td class="num">${hours(g.week, 2)}</td>
+      <td class="num">${arrow((g.week - g.prevWeek) / 3600)}</td>
+      <td class="num muted">—</td>
+      <td></td>
+      <td class="num ${a.pct === null ? 'muted' : a.pct >= tgt ? 'up' : 'down'}" title="Accuracy of mixed / all-topic reports">${a.pct === null ? '—' : `${a.pct.toFixed(0)}%`}</td>
+      <td class="num muted">—</td>
+      <td><span class="rating nr" title="General study isn't rated against the exam">· NR</span></td>
+    </tr>`;
+}
+
 function watchlist(st) {
+  const ratings = analystRatings(st.topics);
+  const reports = levelScores();
+  const tgt = store.doc.settings.scoreTarget || 70;
   const rows = st.topics.map((t) => {
     const chg = (t.week - t.prevWeek) / 3600;
+    const r = ratings.get(t.topic.id);
     return `<tr data-href="#/topics?open=${encodeURIComponent(t.topic.id)}" tabindex="0">
       <td class="tk">${esc(t.ticker)}</td>
       <td class="nm">${esc(t.topic.name)}</td>
@@ -196,16 +257,39 @@ function watchlist(st) {
       <td class="num">${arrow(chg)}</td>
       <td class="num">${t.done}/${t.total}</td>
       <td class="bar-cell"><div class="meter"><div style="width:${t.total ? (t.done / t.total) * 100 : 0}%"></div></div></td>
-      <td class="num muted">${esc(t.topic.weight || '')}</td>
+      ${(() => { const a = accuracy(reports.filter((x) => x.topicId === t.topic.id)); return `<td class="num ${a.pct === null ? 'muted' : a.pct >= tgt ? 'up' : 'down'}">${a.pct === null ? '—' : `${a.pct.toFixed(0)}%`}</td>`; })()}
+      <td class="num muted">${r.target === null ? '—' : `${Math.round(r.share * 100)}/${Math.round(r.target * 100)}%`}</td>
+      <td>${ratingChip(r)}</td>
     </tr>`;
-  }).join('');
+  }).join('') + genRow(st.general, reports, tgt);
+  const unrated = st.total < ratingMinHours * 3600;
   return `
     <section class="panel">
-      <div class="phead"><span>WATCHLIST · LEVEL ${ROMAN[currentLevel()]}</span><span class="muted">7D CHG = LAST 7 DAYS VS THE 7 BEFORE</span></div>
+      <div class="phead"><span>WATCHLIST · LEVEL ${ROMAN[currentLevel()]}</span><span class="muted">${unrated ? `RATINGS START AFTER ${ratingMinHours}H BANKED` : 'MIX = YOUR SHARE OF HOURS / SHARE OF THE EXAM'}</span></div>
       <div class="table-wrap"><table class="watch">
-        <thead><tr><th>TKR</th><th>TOPIC</th><th class="num">HRS</th><th class="num">7D</th><th class="num">7D CHG</th><th class="num">MODS</th><th>DONE</th><th class="num">WGT</th></tr></thead>
+        <thead><tr><th>TKR</th><th>TOPIC</th><th class="num">HRS</th><th class="num">7D</th><th class="num">7D CHG</th><th class="num">MODS</th><th>DONE</th><th class="num">ACC</th><th class="num">MIX</th><th>RATING</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
+    </section>`;
+}
+
+function maturing() {
+  const { due, upcoming } = schedule();
+  const row = (r, isDue) => `
+    <li class="${isDue ? 'due' : ''}">
+      <span class="tk">${esc(r.ticker)}</span>
+      <span class="mat-name">${esc(r.item.name)}</span>
+      <span class="rev ${isDue ? 'due' : ''}">${r.stage} ${isDue ? 'DUE' : shortDate(r.rev.due).toUpperCase()}</span>
+      ${isDue ? `<span class="mat-act"><button type="button" class="btn small" data-rev="reviewed|${esc(r.topic.id)}|${esc(r.item.id)}" title="Mark as reviewed">✓ REVIEWED</button><button type="button" class="btn small" data-rev="snooze|${esc(r.topic.id)}|${esc(r.item.id)}" title="Remind me tomorrow">SNOOZE</button></span>` : ''}
+    </li>`;
+  const body = due.length || upcoming.length
+    ? `<ul class="mat">${due.slice(0, 8).map((r) => row(r, true)).join('')}${upcoming.slice(0, Math.max(0, 6 - due.length)).map((r) => row(r, false)).join('')}</ul>
+       ${due.length > 8 ? `<p class="note">+ ${due.length - 8} more due. <a href="#/topics">See all in Topics</a></p>` : ''}`
+    : '<p class="note">Nothing to review yet. Tick modules off in Topics; each comes back here for review after 1, 7 and 30 days, so early topics don\'t fade by exam day.</p>';
+  return `
+    <section class="panel">
+      <div class="phead"><span>MATURING · REVIEWS</span><span class="muted">${due.length} DUE TODAY · ${upcoming.length} THIS WEEK</span></div>
+      ${body}
     </section>`;
 }
 
@@ -240,6 +324,10 @@ export function renderDashboard(root) {
       </section>
       ${tape(st)}
     </div>
+    <div class="row-2 row-2b">
+      ${heatmapPanel(st.topics, st.general)}
+      ${maturing()}
+    </div>
     ${watchlist(st)}`;
 
   const chart = root.querySelector('.chart');
@@ -258,6 +346,15 @@ export function renderDashboard(root) {
     tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
   });
 
+  root.querySelectorAll('[data-rev]').forEach((btn) => btn.addEventListener('click', () => {
+    const [kind, topicId, itemId] = btn.dataset.rev.split('|');
+    reviewAct(kind, topicId, itemId); // saving re-renders the dashboard
+  }));
+
+  root.querySelector('[data-credit]')?.addEventListener('click', showCredit);
+  root.querySelector('[data-10k]')?.addEventListener('click', () => showReport(weekReport(-1).sec > 0 ? -1 : 0));
+  root.querySelector('[data-pick]')?.addEventListener('click', (e) => setTopic(e.currentTarget.dataset.pick, ''));
+
   return () => ro.disconnect();
 }
 
@@ -268,6 +365,7 @@ export function tickerItems() {
   const exam = examCountdown();
   const items = [`<b>${symbol()}</b> ${totalH.toFixed(2)} ${arrow(st.today / 3600)}`];
   for (const t of st.topics) items.push(`<b>${esc(t.ticker)}</b> ${hours(t.sec, 1)}H ${arrow((t.week - t.prevWeek) / 3600)}`);
+  if (st.general.sec > 0) items.push(`<b>GEN</b> ${hours(st.general.sec, 1)}H ${arrow((st.general.week - st.general.prevWeek) / 3600)}`);
   items.push(`<b>STREAK</b> ${st.streak}D`);
   if (exam && exam.days > 0) items.push(`<b>EXAM</b> T-${exam.days}D`);
   items.push(`<b>TGT</b> ${store.doc.settings.goalHours}H`);
