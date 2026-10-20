@@ -290,6 +290,7 @@ export const DEFAULT_SETTINGS = {
   presence: true,
   phoneCheck: true,
   wrapUp: true,
+  wakeLock: true,
   wrapFocus: true,
   wrapNotes: true,
   wrapModule: true,

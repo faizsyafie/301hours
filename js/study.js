@@ -1,6 +1,7 @@
 import { store, save, subscribe } from './store.js';
 import { timer, onTimer, toggle, skip, restart, switchTo, setTopic, phaseLengthSec, remainingSec } from './timer.js';
 import { openMini, miniMode } from './pip.js';
+import { toggleFocus, targetLine, isFocusMode } from './focus.js';
 import { ambient, MODES, setMode, setVolume, preview } from './ambient.js';
 import { presence, onPresence, startCamera, stopCamera, isPresent, video } from './presence.js';
 import { levelTopics, currentLevel, sessionLevel, tickerOf, stats } from './model.js';
@@ -40,7 +41,7 @@ export function renderStudy(root) {
   root.innerHTML = `
     <div class="study">
       <section class="panel timer-panel" data-phase="${timer.phase}">
-        <div class="phead"><span>SESSION</span><span class="muted">SPACE OPEN/HALT · S SKIP · R RESET · P POP OUT</span></div>
+        <div class="phead"><span>SESSION</span><span class="muted">SPACE OPEN/HALT · S SKIP · R RESET · F FOCUS · P POP OUT</span></div>
         <div class="seg" role="tablist">
           ${Object.entries(PHASES).map(([k, v]) => `<button type="button" role="tab" data-phase="${k}" aria-selected="${k === timer.phase}">${v}</button>`).join('')}
         </div>
@@ -55,13 +56,15 @@ export function renderStudy(root) {
           <button type="button" class="btn" data-act="skip" title="End this block now (S)">SKIP ▸</button>
         </div>
         <div class="popout-row">
+          <button type="button" class="btn small" data-act="focus" title="Full-screen countdown (F)">⛶ FOCUS MODE</button>
           <button type="button" class="btn small" data-act="popout" title="${miniMode === 'pip' ? 'Always-on-top mini window (P)' : 'Small separate window (P)'}">⧉ POP OUT MINI-TERMINAL</button>
-          <span class="note">${miniMode === 'pip' ? 'Stays on top of other windows, so you can read your notes and still see the clock.' : 'Opens a small window. Pinning it on top needs Chrome or Edge.'}</span>
+          <span class="note">${miniMode === 'pip' ? 'Mini-terminal stays on top of other windows.' : 'Mini-terminal: pinning on top needs Chrome or Edge.'}</span>
         </div>
         <div class="fields">
           <label>TOPIC<select name="topic">${topicOptions(timer.topicId)}</select></label>
           <label>MODULE<select name="item">${moduleOptions(timer.topicId)}</select></label>
         </div>
+        <div class="target-row"></div>
         <div class="pick-row"></div>
         <div class="kv-row">
           <div><span class="k">TODAY</span><span class="v today"></span></div>
@@ -134,6 +137,7 @@ export function renderStudy(root) {
   $('[data-act="skip"]', root).addEventListener('click', skip);
   $('[data-act="restart"]', root).addEventListener('click', restart);
   $('[data-act="popout"]', root).addEventListener('click', openMini);
+  $('[data-act="focus"]', root).addEventListener('click', toggleFocus);
   $('[data-act="camera"]', root).addEventListener('click', () => (presence.state === 'off' || presence.state === 'error' ? startCamera() : stopCamera()));
 
   const topicSel = $('[name="topic"]', root);
@@ -200,11 +204,13 @@ export function renderStudy(root) {
   });
 
   const onKey = (e) => {
-    if (e.target.closest('input, select, textarea, button, summary') || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    if (e.target.closest('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey || isFocusMode()) return;
+    // Space on a focused button already clicks it; letter shortcuts work anywhere.
+    if (e.code === 'Space') { if (!e.target.closest('button, summary')) { e.preventDefault(); toggle(); } }
     else if (e.key === 's') skip();
     else if (e.key === 'r') restart();
     else if (e.key === 'p') openMini();
+    else if (e.key === 'f') toggleFocus();
   };
   document.addEventListener('keydown', onKey);
 
@@ -237,6 +243,7 @@ export function renderStudy(root) {
     $('.today', root).textContent = duration(todaySec());
     $('.blocks', root).textContent = String(timer.completed);
     $('.away-time', root).textContent = clock(timer.awayMs / 1000);
+    $('.target-row', root).innerHTML = targetLine();
     $('.walkouts', root).textContent = String(timer.walkouts);
     $('.pickups', root).textContent = String(timer.pickups);
 
@@ -289,7 +296,7 @@ export function renderStudy(root) {
 
   update();
   let lastPhase = timer.phase;
-  const offs = [onTimer(update), onPresence(update), subscribe(showPick), onTimer(() => { if (timer.phase !== lastPhase) { lastPhase = timer.phase; showPick(); } })];
+  const offs = [onTimer(update), onPresence(update), subscribe(showPick), subscribe(() => update()), onTimer(() => { if (timer.phase !== lastPhase) { lastPhase = timer.phase; showPick(); } })];
   return () => {
     offs.forEach((off) => off());
     document.removeEventListener('keydown', onKey);

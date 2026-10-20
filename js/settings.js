@@ -22,6 +22,7 @@ const FIELDS = [
 const TOGGLES = [
   ['presence', 'Only count study time while I\'m at the desk (camera)'],
   ['phoneCheck', 'Halt the clock while a phone is in frame (camera)'],
+  ['wakeLock', 'Keep the screen awake while the timer runs'],
   ['wrapUp', 'Show a wrap-up after each study block'],
   ['wrapFocus', '└ Wrap-up asks: how focused were you (1–5)'],
   ['wrapNotes', '└ Wrap-up asks: what did you cover'],

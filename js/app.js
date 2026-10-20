@@ -14,6 +14,7 @@ import { showAbout } from './about.js';
 import { initAuth, setupAccountUI, showSignIn } from './account.js';
 import './install.js';
 import './wrapup.js';
+import './focus.js';
 import { $, $$, clock, esc } from './util.js';
 import { video } from './presence.js';
 

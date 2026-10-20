@@ -565,3 +565,33 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .focus-dots { color: var(--amber); font-size: 0.6rem; letter-spacing: 1px; white-space: nowrap; }
 .notes-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; }
 .notes-list li { padding: 8px 0; border-bottom: 1px dashed var(--line); }
+
+/* ---------- Focus mode ---------- */
+.target-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.8rem; margin: 0 0 12px; }
+.target-row .k, .fm-target .k { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em; }
+.tgt-track { flex: 1; min-width: 80px; height: 6px; background: var(--sq-off); display: inline-block; }
+.tgt-track > span { display: block; height: 100%; background: var(--green); }
+.focus-mode {
+  --phase: var(--amber);
+  position: fixed; inset: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column;
+  padding: 24px max(24px, 6vw); box-sizing: border-box;
+}
+.focus-mode[data-state="on"] { --phase: var(--green); }
+.focus-mode[data-state="break"] { --phase: var(--cyan); }
+.focus-mode[data-state="away"] { --phase: var(--red); }
+.fm-top { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; letter-spacing: 0.1em; }
+.fm-phase { background: var(--phase); color: var(--bg); font-weight: 700; padding: 2px 10px; }
+.fm-cam { display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600; }
+.fm-cam[data-state="seen"] { color: var(--green); } .fm-cam[data-state="seen"] .lamp { background: var(--green); box-shadow: 0 0 10px var(--green); }
+.fm-cam[data-state="grace"] { color: var(--amber); } .fm-cam[data-state="grace"] .lamp { background: var(--amber); }
+.fm-cam[data-state="away"] { color: var(--red); } .fm-cam[data-state="away"] .lamp { background: var(--red); }
+.fm-center { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; min-height: 0; }
+.fm-topic { font-size: clamp(0.9rem, 2vw, 1.2rem); color: var(--dim); text-align: center; }
+.fm-topic b { color: var(--amber); margin-right: 8px; }
+.fm-time { font-size: clamp(5rem, 24vw, 22rem); font-weight: 700; line-height: 0.9; color: var(--phase); letter-spacing: -0.03em; text-shadow: 0 0 40px color-mix(in srgb, var(--phase) 30%, transparent); }
+.focus-mode .bar-track { width: min(900px, 80vw); height: 6px; }
+.focus-mode .bar-fill { background: var(--phase); }
+.fm-status { color: var(--phase); font-weight: 600; letter-spacing: 0.1em; font-size: clamp(0.8rem, 1.6vw, 1.1rem); }
+.focus-mode[data-state="away"] .fm-status { animation: blink 1.2s steps(2) infinite; }
+.fm-bottom { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.fm-target { display: flex; align-items: center; gap: 10px; flex: 1; max-width: 520px; font-size: 0.85rem; }
