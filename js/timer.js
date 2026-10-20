@@ -17,6 +17,15 @@ const listeners = new Set();
 const alertListeners = new Set();
 const blockEndListeners = new Set();
 const blockStartListeners = new Set();
+const gateListeners = new Set();
+// How many flashcards must be answered before a break (0 = no gate). Set by gate.js.
+let gateNeed = () => 0;
+export function setGateSource(fn) { gateNeed = fn; }
+// Fired when you try to start a locked break (gate.js shows the cards).
+export function onGateRequest(fn) {
+  gateListeners.add(fn);
+  return () => gateListeners.delete(fn);
+}
 
 export const timer = {
   phase: 'study',      // 'study' | 'short' | 'long'
@@ -27,6 +36,7 @@ export const timer = {
   walkouts: 0,         // times the clock halted because you left the frame
   pickups: 0,          // times the clock halted because a phone was in frame
   halt: '',            // why a running study block isn't counting: 'away' | 'phone' | ''
+  gate: null,          // flashcard gate before a break: { need, sessionId, auto }
   counting: false,     // whether the clock is currently advancing
   topicId: '',
   itemId: '',
@@ -80,7 +90,7 @@ function emit() {
 // close picks up where it left off.
 const TIMER_KEY = '301hours:timer';
 const RESTORE_WITHIN_MS = 6 * 3600000;
-const SAVED = ['phase', 'running', 'elapsedMs', 'awayMs', 'completed', 'walkouts', 'pickups', 'topicId', 'itemId', 'sessionId'];
+const SAVED = ['phase', 'running', 'elapsedMs', 'awayMs', 'completed', 'walkouts', 'pickups', 'topicId', 'itemId', 'sessionId', 'gate'];
 let lastPersist = 0;
 
 function persist() {
@@ -260,6 +270,7 @@ function enterPhase(phase, autoStart) {
   timer.awayMs = 0;
   timer.running = autoStart;
   timer.counting = false;
+  timer.gate = null;
   warned = false;
   lastTick = Date.now();
 }
@@ -274,8 +285,15 @@ function finishPhase() {
     if (block && block.sec >= 60) for (const fn of blockEndListeners) fn({ ...block, number: timer.completed });
     const next = timer.completed % st.longEvery === 0 ? 'long' : 'short';
     const auto = st.autoStartBreak !== false;
-    enterPhase(next, auto);
+    const need = block && block.sec >= 60 ? gateNeed() : 0;
+    enterPhase(next, auto && !need);
     const mins = next === 'long' ? st.longMin : st.shortMin;
+    if (need) {
+      // The break waits (its clock hasn't started) until the cards are answered.
+      timer.gate = { need, sessionId: block.sessionId, auto };
+      announce('break', `◆ BLOCK ${timer.completed} BANKED · BREAK LOCKED`, `Answer ${need} flashcard${need === 1 ? '' : 's'} to unlock your ${mins}-min ${breakName(next)}.`, 'register');
+      return;
+    }
     announce('break', `◆ MARKET CLOSED · BLOCK ${timer.completed} BANKED`, auto
       ? `Your ${mins}-min ${breakName(next)} starts now. Stand up, stretch, look away from the screen.`
       : `Your ${mins}-min ${breakName(next)} is ready. Press SPACE to start it.`, 'register');
@@ -295,6 +313,10 @@ function finishPhase() {
 }
 
 export function start() {
+  if (timer.gate && timer.phase !== 'study') {
+    for (const fn of gateListeners) fn();
+    return;
+  }
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
   lastTick = Date.now();
   if (timer.phase === 'study' && !timer.elapsedMs) {
@@ -310,6 +332,16 @@ export function toggle() {
   if (timer.running) return pause();
   if (timer.phase === 'study' && settings().presence && presence.state !== 'ready') startCamera();
   start();
+}
+
+// Gate cleared (or skipped): start the break if breaks start automatically.
+export function unlockGate() {
+  const g = timer.gate;
+  if (!g) return;
+  timer.gate = null;
+  lastTick = Date.now();
+  if (g.auto) timer.running = true;
+  emit();
 }
 
 export function pause() {

@@ -292,6 +292,8 @@ export const DEFAULT_SETTINGS = {
   wrapUp: true,
   wakeLock: true,
   breakCards: true,
+  gateCount: 2,
+  gateStrict: false,
   wrapFocus: true,
   wrapNotes: true,
   wrapModule: true,

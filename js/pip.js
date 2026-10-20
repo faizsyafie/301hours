@@ -60,10 +60,11 @@ export function mountMini(doc) {
     const total = phaseLengthSec();
     const left = remainingSec();
     let state;
-    if (!timer.running) state = 'idle';
+    if (timer.gate) state = 'gate';
+    else if (!timer.running) state = 'idle';
     else if (timer.phase !== 'study') state = 'break';
     else state = timer.counting ? 'on' : timer.halt === 'phone' ? 'phone' : 'away';
-    $('.mini').dataset.state = state === 'phone' ? 'away' : state;
+    $('.mini').dataset.state = state === 'phone' ? 'away' : state === 'gate' ? 'break' : state;
     $('.mini-phase').textContent = LABEL[timer.phase];
     const topic = store.doc.topics.find((t) => t.id === timer.topicId);
     $('.mini-tk').textContent = timer.phase === 'study' ? (topic ? tickerOf(topic) : 'GEN') : '';
@@ -75,8 +76,9 @@ export function mountMini(doc) {
       on: '● MARKET OPEN',
       away: '■ HALTED · AWAY FROM DESK',
       phone: '■ HALTED · PHONE IN HAND',
+      gate: '◆ BREAK LOCKED · ANSWER CARDS',
     }[state];
-    $('[data-act="toggle"]').textContent = timer.running ? '■ HALT' : '▶ OPEN';
+    $('[data-act="toggle"]').textContent = timer.gate ? '▶ UNLOCK' : timer.running ? '■ HALT' : '▶ OPEN';
     const cam = !s.presence ? 'off' : presence.state !== 'ready' ? 'off' : presence.seen ? 'seen' : isPresent(s.graceSec) ? 'grace' : 'away';
     $('.mini-cam').dataset.state = cam;
     $('.mini-cam-text').textContent = { off: s.presence ? 'CAM OFF' : 'NO CAM', seen: 'AT DESK', grace: 'LOOKING…', away: 'AWAY' }[cam];

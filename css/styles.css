@@ -659,3 +659,14 @@ button.rev.due:hover { background: var(--amber); color: var(--bg); }
 .plan-auto { margin-bottom: 10px; }
 .pl-why { display: block; font-size: 0.7rem; color: var(--muted); letter-spacing: 0.04em; overflow: hidden; text-overflow: ellipsis; }
 .plan li.next .pl-why { color: var(--green); }
+
+/* ---------- Break gate ---------- */
+.sw-select { cursor: default; }
+.sw-select select { flex: none; }
+.gate-opts .sw { border-top: 0; padding: 6px 0 0; }
+.chip input[type="radio"] + span::before { content: ""; }
+.chip input[type="radio"]:checked + span { background: var(--amber); color: var(--bg); }
+.gate-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.gate-lock { color: var(--cyan); font-weight: 700; letter-spacing: 0.1em; font-size: 1.1rem; }
+.gate .link { font: inherit; background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; }
+.gate .link:hover { color: var(--red); }

@@ -2,7 +2,6 @@
 // can be switched off in Setup (or the whole screen). Nothing is compulsory:
 // SKIP closes it, and the module stays "in progress" unless you say otherwise.
 import { store, save } from './store.js';
-import { onBlockEnd } from './timer.js';
 import { onDoneChange } from './reviews.js';
 import { tickerOf } from './model.js';
 import { esc, uid, duration } from './util.js';
@@ -13,11 +12,12 @@ function findTopic(id) {
   return store.doc.topics.find((t) => t.id === id);
 }
 
+// Resolves when the wrap-up closes (immediately if it's switched off).
 export function showWrapUp(block) {
   const st = store.doc.settings;
-  if (st.wrapUp === false || document.querySelector('dialog.wrapup')) return;
+  if (st.wrapUp === false || document.querySelector('dialog.wrapup')) return Promise.resolve();
   const ask = { focus: st.wrapFocus !== false, notes: st.wrapNotes !== false, module: st.wrapModule !== false, questions: st.wrapQuestions !== false };
-  if (!Object.values(ask).some(Boolean)) return;
+  if (!Object.values(ask).some(Boolean)) return Promise.resolve();
 
   const topic = findTopic(block.topicId);
   const items = topic ? topic.items.filter((i) => !i.deleted) : [];
@@ -80,7 +80,10 @@ export function showWrapUp(block) {
   dlg.showModal();
   (dlg.querySelector('[data-focus]') || dlg.querySelector('input, select'))?.focus();
 
+  let done;
+  const closed = new Promise((r) => { done = r; });
   dlg.addEventListener('close', () => {
+    setTimeout(done, 0);
     const f = dlg.querySelector('form');
     if (dlg.returnValue === 'ok') apply(block, {
       focus,
@@ -92,6 +95,7 @@ export function showWrapUp(block) {
     });
     dlg.remove();
   });
+  return closed;
 }
 
 function apply(block, a) {
@@ -118,4 +122,3 @@ function apply(block, a) {
   save({ immediate: true });
 }
 
-onBlockEnd((block) => setTimeout(() => showWrapUp(block), 400));

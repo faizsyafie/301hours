@@ -52,7 +52,15 @@ export const dueCount = () => cardsFor(undefined).filter((c) => (c.due || 0) <= 
 
 // ---------- Review widget (break panel, focus mode, topic review) ----------
 // Renders into `el` and keeps going until the cards run out.
-export function mountReview(el, { topicId = () => timer.topicId, title = 'BREAK CARD', empty } = {}) {
+// cardMode: 'off' | 'break' (shown during breaks) | 'gate' (answer N to unlock the break)
+export function cardMode() {
+  const s = store.doc.settings;
+  return s.cardMode || (s.breakCards === false ? 'off' : 'break');
+}
+
+// onGrade(gotIt) is called after each graded card; allowRepeat cycles back
+// through seen cards instead of running out (used by the gate).
+export function mountReview(el, { topicId = () => timer.topicId, title = 'BREAK CARD', empty, onGrade, allowRepeat = false, requeueMisses = false, header } = {}) {
   const seen = new Set();
   let card = null, revealed = false;
   const tick = (c) => {
@@ -61,12 +69,13 @@ export function mountReview(el, { topicId = () => timer.topicId, title = 'BREAK 
   };
   const draw = () => {
     if (!card) card = pickCard(typeof topicId === 'function' ? topicId() : topicId, seen);
+    if (!card && allowRepeat && seen.size) { seen.clear(); card = pickCard(typeof topicId === 'function' ? topicId() : topicId, seen); }
     if (!card) {
       el.innerHTML = `<div class="phead"><span>${title}</span></div>${empty || '<p class="note">No flashcards yet. Add some on <a href="#/topics">3 TOPICS</a> (open a topic → FLASHCARDS).</p>'}`;
       return;
     }
     el.innerHTML = `
-      <div class="phead"><span>${title} · <b class="tk">${esc(tick(card))}</b></span><span class="muted">BOX ${card.box || 1}/5 · ${dueCount()} DUE</span></div>
+      <div class="phead"><span>${title} · <b class="tk">${esc(tick(card))}</b></span><span class="muted">${header ? header() : `BOX ${card.box || 1}/5 · ${dueCount()} DUE`}</span></div>
       <div class="fc ${revealed ? 'revealed' : ''}">
         <div class="fc-front">${esc(card.front)}</div>
         ${revealed ? `<div class="fc-back">${esc(card.back)}</div>` : ''}
@@ -87,7 +96,9 @@ export function mountReview(el, { topicId = () => timer.topicId, title = 'BREAK 
       // Look the card up again: a sync may have replaced the objects since it was drawn.
       const live = (store.doc.cards || []).find((c) => c.id === card.id);
       if (live && (act === 'got' || act === 'again')) grade(live, act === 'got');
-      seen.add(card.id);
+      // In strict mode a missed card comes back until you get it.
+      if (!(requeueMisses && act === 'again')) seen.add(card.id);
+      if (act === 'got' || act === 'again') onGrade?.(act === 'got');
       card = null;
       revealed = false;
     }

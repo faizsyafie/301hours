@@ -6,7 +6,7 @@ import { timer, onTimer, toggle, phaseLengthSec, remainingSec } from './timer.js
 import { presence, onPresence, isPresent } from './presence.js';
 import { stats, tickerOf, isRestDay } from './model.js';
 import { clock, duration, esc } from './util.js';
-import { mountReview } from './cards.js';
+import { mountReview, cardMode } from './cards.js';
 
 let overlay = null;
 let offs = [];
@@ -37,7 +37,8 @@ function update() {
   const total = phaseLengthSec();
   const left = remainingSec();
   let state = 'idle', status = timer.elapsedMs ? '■ HALTED · PAUSED' : '○ PRE-MARKET · SPACE TO OPEN';
-  if (timer.running && timer.phase !== 'study') { state = 'break'; status = '◆ MARKET CLOSED · BREAK'; }
+  if (timer.gate) { state = 'break'; status = '◆ BREAK LOCKED · SPACE TO ANSWER CARDS'; }
+  else if (timer.running && timer.phase !== 'study') { state = 'break'; status = '◆ MARKET CLOSED · BREAK'; }
   else if (timer.running && timer.counting) { state = 'on'; status = '● MARKET OPEN'; }
   else if (timer.running) { state = 'away'; status = timer.halt === 'phone' ? '■ HALTED · PHONE IN HAND' : '■ HALTED · AWAY FROM DESK'; }
   overlay.dataset.state = state;
@@ -52,7 +53,7 @@ function update() {
   overlay.querySelector('.fm-cam').dataset.state = cam;
   overlay.querySelector('.fm-cam-text').textContent = { off: s.presence ? 'CAM OFF' : 'NO CAM', seen: 'AT DESK', grace: 'LOOKING…', away: presence.phone ? 'PHONE' : 'AWAY' }[cam];
   overlay.querySelector('.fm-target').innerHTML = targetLine();
-  const onBreak = timer.phase !== 'study' && s.breakCards !== false;
+  const onBreak = timer.phase !== 'study' && !timer.gate && cardMode() === 'break';
   const cardEl = overlay.querySelector('.fm-card');
   cardEl.hidden = !onBreak;
   if (onBreak && overlay.dataset.cardFor !== timer.phase + timer.completed) {

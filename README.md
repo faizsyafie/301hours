@@ -16,6 +16,9 @@ Styled as a trading terminal. Your study hours trade as `$CFA1`, `$CFA2` or `$CF
 - **Focus mode** (`F`): a full-screen countdown with the desk-cam light and today's target; the screen is kept awake while the timer runs.
 - **Study plan**: queue blocks by topic/module on the Study page; each new block loads the next one and finished blocks tick off.
 - **Flashcards**: your own cards per topic (Topics → FLASHCARDS; add one by one or paste `front | back` lines). They appear during breaks and in focus mode, using a Leitner box system (GOT IT = seen less often, AGAIN = back to box 1).
+- **Break gate** (optional, Setup → Flashcards → GATE THE BREAK): the break unlocks only after you answer 1–5 cards (or get them right, in strict mode). It runs after the wrap-up, the break clock waits until you're done, and skipping is allowed but shows in the 10-K.
+- **Auto-plan today**: one button on the Study page builds today's plan from reviews due, topics underweight against the exam and topics below your score target, with the reason for each block.
+- **Rest days** (Setup → Goals): weekdays and specific dates off. They never break your streak or lower your credit rating, and the daily pace only counts study days.
 - **Analyst ratings**: each topic's share of your hours vs its share of the exam: UNDERWEIGHT · BUY, MARKET WEIGHT · HOLD or OVERWEIGHT · TRIM, plus a "top pick" to study next.
 - **Earnings**: log question-bank sets and mock exams; each one BEATs or MISSes your target score (70% by default), with accuracy per topic and a mock-exam trend.
 - **Revision schedule**: ticked modules come back for review after 1, 7 and 30 days ("maturing" on the dashboard).

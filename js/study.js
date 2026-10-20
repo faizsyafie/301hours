@@ -3,7 +3,7 @@ import { timer, onTimer, toggle, skip, restart, switchTo, setTopic, phaseLengthS
 import { openMini, miniMode } from './pip.js';
 import { toggleFocus, targetLine, isFocusMode } from './focus.js';
 import { planPanel, wirePlan, bindPlanSelects } from './plan.js';
-import { mountReview } from './cards.js';
+import { mountReview, cardMode } from './cards.js';
 import { ambient, MODES, setMode, setVolume, preview } from './ambient.js';
 import { presence, onPresence, startCamera, stopCamera, isPresent, video } from './presence.js';
 import { levelTopics, currentLevel, sessionLevel, tickerOf, stats } from './model.js';
@@ -255,7 +255,8 @@ export function renderStudy(root) {
     $('.bar-fill', root).style.width = `${Math.min(100, ((total - left) / total) * 100)}%`;
 
     let state, cls;
-    if (!timer.running) {
+    if (timer.gate) { state = '◆ BREAK LOCKED · ANSWER CARDS TO UNLOCK'; cls = 'break'; }
+    else if (!timer.running) {
       cls = 'idle';
       state = timer.elapsedMs ? '■ HALTED · PAUSED' : timer.phase === 'study' ? '○ PRE-MARKET · PRESS SPACE TO OPEN' : '◆ BREAK READY';
     } else if (timer.phase !== 'study') { state = '◆ MARKET CLOSED · BREAK'; cls = 'break'; }
@@ -268,13 +269,13 @@ export function renderStudy(root) {
     statusEl.className = `status ${cls}`;
     panel.dataset.state = cls;
 
-    $('[data-act="toggle"]', root).textContent = timer.running ? '■ HALT' : timer.elapsedMs ? '▶ RESUME' : timer.phase === 'study' ? '▶ OPEN MARKET' : '▶ START BREAK';
+    $('[data-act="toggle"]', root).textContent = timer.gate ? '▶ UNLOCK BREAK' : timer.running ? '■ HALT' : timer.elapsedMs ? '▶ RESUME' : timer.phase === 'study' ? '▶ OPEN MARKET' : '▶ START BREAK';
     $('.today', root).textContent = duration(todaySec());
     $('.blocks', root).textContent = String(timer.completed);
     $('.away-time', root).textContent = clock(timer.awayMs / 1000);
     $('.target-row', root).innerHTML = targetLine();
     // Break cards: one review session per break.
-    const onBreak = timer.phase !== 'study' && store.doc.settings.breakCards !== false;
+    const onBreak = timer.phase !== 'study' && !timer.gate && cardMode() === 'break';
     cardEl.hidden = !onBreak;
     if (onBreak && cardPhase !== timer.phase + timer.completed) {
       cardPhase = timer.phase + timer.completed;

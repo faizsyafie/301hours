@@ -48,6 +48,8 @@ export function weekReport(offset = 0) {
   const goal = (store.doc.settings.dailyGoalHours || 0) * 3600;
   const rated = sessions.filter((x) => x.focus);
   const focusAvg = rated.length ? rated.reduce((a, x) => a + x.focus, 0) / rated.length : null;
+  const gatesSkipped = sessions.filter((x) => x.gateSkipped).length;
+  const gateCards = sessions.reduce((a, x) => a + (x.gateCards || 0), 0);
   return {
     level, from, to, sec, prevSec, verified, days, best, topRows, modules,
     reviews: reviewsBetween(from, to),
@@ -56,7 +58,7 @@ export function weekReport(offset = 0) {
     restDays: days.filter((d) => !d.sec && isRestDay(d.ts)).length,
     targetHits: goal ? days.filter((d) => d.sec >= goal).length : null,
     rating: creditRating(st, store.doc.settings.dailyGoalHours),
-    focusAvg,
+    focusAvg, gatesSkipped, gateCards,
     partial: offset === 0,
   };
 }
@@ -90,6 +92,7 @@ function html(r) {
         ${kv('ACCURACY', r.accuracy === null ? '—' : `${r.accuracy.toFixed(1)}%`, r.accuracy === null ? '' : r.accuracy >= (store.doc.settings.scoreTarget || 70) ? 'up' : 'down')}
         ${kv('CREDIT RATING', r.rating.grade + (r.rating.outlook ? ` · ${r.rating.outlook}` : ''))}
         ${kv('AVG FOCUS', r.focusAvg === null ? '—' : `${r.focusAvg.toFixed(1)}/5`)}
+        ${r.gateCards || r.gatesSkipped ? kv('GATE CARDS', `${r.gateCards}${r.gatesSkipped ? ` <span class="down small">· ${r.gatesSkipped} skipped</span>` : ''}`) : ''}
       </div>
       <div class="tenk-seg"><span class="k">SEGMENTS · TOP TOPICS</span>${r.topRows.length ? r.topRows.map((t) => `<div><b class="tk">${esc(t.ticker)}</b> ${esc(t.name)} <span class="num">${duration(t.sec)}</span></div>`).join('') : '<div class="muted">No study logged this week.</div>'}</div>
       <div class="row end"><button type="button" class="btn" data-save>SAVE AS IMAGE ↓</button></div>
