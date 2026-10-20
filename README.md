@@ -4,7 +4,7 @@ A study tracker and dashboard for CFA candidates. Log at least 300 hours, maybe 
 
 Styled as a trading terminal. Your study hours trade as `$CFA1`, `$CFA2` or `$CFA3`.
 
-- **Dashboard** (home page): hours banked against your target, the hours per day you need before exam day, a grid of 301 squares (one per hour) with milestones, a 30-day price chart (cumulative hours) with daily volume, a time & sales tape of recent sessions, and a watchlist of topics with week-on-week change.
+- **Dashboard** (home page): hours banked against your target, the hours per day you need before exam day, a grid of 301 squares (one per hour) with milestones, a chart with a 30-day view (cumulative hours with daily volume) and a path-to-exam view, a time & sales tape of recent sessions, and a watchlist of topics with week-on-week change.
 - **Levels**: switch between CFA Level I, II and III in the header. Each level has its own topics, hours and grid. For Level III, pick your pathway (Portfolio Management, Private Wealth or Private Markets) in Topics or Setup.
 - **Study**: a Pomodoro timer with a desk cam. The market is open while you're in frame. Walk away and trading halts until you're back. Breaks don't need the camera. Keys: `Space` open/halt, `S` skip, `R` reset. Blocks and breaks start by themselves (both optional in Setup), with a sound and an in-page alert at each change and a 1-minute warning before each one ends.
 - **Topics**: the curriculum for each level as a checklist. Rename, re-ticker, add or delist anything to match your curriculum year. The Level II and III module lists follow the recent curriculum structure; check them against yours.
@@ -28,7 +28,11 @@ Styled as a trading terminal. Your study hours trade as `$CFA1`, `$CFA2` or `$CF
 - **Mini-terminal**: pop the timer out into an always-on-top window (Chrome/Edge; a small window elsewhere).
 - **Focus sounds**: optional brown noise, rain or trading-floor ambience during study blocks.
 - **Installable**: add it to your dock or home screen; it opens offline, and the timer survives a reload.
-- **Navigation**: keys `1`–`4` switch between Dashboard, Study, Topics and Setup.
+- **Path to exam** (dashboard chart, `TO EXAM` tab): your actual hours against the straight-line path to your goal on exam day (flat on rest days), with a projection at your last-14-days pace. The PACE figure in the quote strip says how far ahead or behind the path you are today.
+- **Tab countdown**: the browser tab shows the running clock (`▶ 18:42 · FI`), so you can see it from another tab.
+- **Themes** (Setup → App): Amber, Phosphor green, Reuters blue or Paper (light).
+- **On a phone**: the pages sit in a bottom tab bar, and alerts pop up bottom-right on desktop, above the tab bar on phones.
+- **Navigation**: keys `1`–`5` switch between Dashboard, Study, Topics, Earnings and Setup; `6` opens About.
 
 ## How the presence check works
 

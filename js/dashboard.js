@@ -7,6 +7,7 @@ import { showReport, weekReport } from './report.js';
 import { setTopic } from './timer.js';
 import { schedule, act as reviewAct } from './reviews.js';
 import { heatmapPanel } from './heatmap.js';
+import { onTrackData, drawOnTrack, onTrackTable, paceCell } from './ontrack.js';
 import { esc, hours, duration, dayKey, startOfDay, shortDate, timeOfDay } from './util.js';
 
 const CHART_DAYS = 30;
@@ -65,7 +66,7 @@ function quote(st) {
   const req = exam && exam.days > 0 ? (remaining / Math.max(1, exam.studyDays)).toFixed(2) : '—';
   const mods = st.topics.reduce((a, t) => ({ done: a.done + t.done, total: a.total + t.total }), { done: 0, total: 0 });
 
-  const cell = (k, v, cls = '') => `<div class="qcell"><span class="k">${k}</span><span class="v ${cls}">${v}</span></div>`;
+  const cell = (k, v, cls = '', title = '') => `<div class="qcell"${title ? ` title="${title}"` : ''}><span class="k">${k}</span><span class="v ${cls}">${v}</span></div>`;
 
   return `
     <section class="panel quote">
@@ -86,6 +87,7 @@ function quote(st) {
         ${cell('REM', remaining.toFixed(2))}
         ${cell('EXAM', exam ? (exam.days > 0 ? `T-${exam.days}D` : 'DONE') : '<a href="#/settings">SET</a>')}
         ${cell('REQ/D', req, exam && exam.days > 0 && st.today / 3600 >= Number(req) ? 'up' : '')}
+        ${(() => { const pc = paceCell(onTrackData()); return cell('PACE', pc.text, pc.cls, pc.title); })()}
         ${cell('WK', (st.week / 3600).toFixed(2))}
         ${cell('STRK', `${st.streak}D`, st.streak ? 'up' : '')}
         ${(() => { const cr = creditRating(st, s.dailyGoalHours); return cell('RATING', `<button type="button" class="credit" data-credit title="How this is calculated">${cr.grade}${cr.outlook ? ` <span class="outlook ${cr.outlook.toLowerCase()}">${{ POSITIVE: '▲', NEGATIVE: '▼', STABLE: '■' }[cr.outlook]}</span>` : ''}</button>`); })()}
@@ -310,17 +312,23 @@ function tape(st) {
     </section>`;
 }
 
+const VIEW_KEY = '301hours:chartView';
+
 export function renderDashboard(root) {
   const st = stats();
   const days = chartData(st);
+  let view = '30d';
+  try { view = localStorage.getItem(VIEW_KEY) || '30d'; } catch { /* ignore */ }
+  const track = onTrackData();
   root.innerHTML = `
     ${quote(st)}
     ${grid(st)}
     <div class="row-2">
       <section class="panel">
-        <div class="phead"><span>${symbol()} · ${CHART_DAYS}D</span><span class="muted">HOVER FOR DETAIL</span></div>
+        <div class="phead"><span>${symbol()} · ${view === 'exam' ? 'PATH TO EXAM' : `${CHART_DAYS}D`}</span>
+          <span class="chart-tabs seg" role="tablist"><button type="button" data-view="30d" aria-selected="${view !== 'exam'}">30D</button><button type="button" data-view="exam" aria-selected="${view === 'exam'}">TO EXAM</button></span></div>
         <div class="chart"></div>
-        ${chartTable(days)}
+        ${view === 'exam' ? onTrackTable(track) : chartTable(days)}
       </section>
       ${tape(st)}
     </div>
@@ -331,9 +339,14 @@ export function renderDashboard(root) {
     ${watchlist(st)}`;
 
   const chart = root.querySelector('.chart');
-  drawChart(chart, days);
-  const ro = new ResizeObserver(() => drawChart(chart, days));
+  const draw = () => (view === 'exam' ? drawOnTrack(chart, track) : drawChart(chart, days));
+  draw();
+  const ro = new ResizeObserver(draw);
   ro.observe(chart);
+  root.querySelectorAll('.chart-tabs [data-view]').forEach((b) => b.addEventListener('click', () => {
+    try { localStorage.setItem(VIEW_KEY, b.dataset.view); } catch { /* ignore */ }
+    renderDashboard(root);
+  }));
 
   const gridTip = root.querySelector('.grid-tip');
   root.querySelector('.grid301').addEventListener('pointerover', (e) => {
