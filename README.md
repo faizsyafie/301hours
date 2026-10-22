@@ -4,13 +4,21 @@ A study tracker and dashboard for CFA candidates. Log at least 300 hours, maybe 
 
 Styled as a trading terminal. Your study hours trade as `$CFA1`, `$CFA2` or `$CFA3`.
 
-- **Dashboard** (home page): hours banked against your target, the hours per day you need before exam day, a grid of 301 squares (one per hour) with milestones, a 30-day price chart (cumulative hours) with daily volume, a time & sales tape of recent sessions, and a watchlist of topics with week-on-week change.
+- **Dashboard** (home page): hours banked against your target, the hours per day you need before exam day, a grid of 301 squares (one per hour) with milestones, a chart with a 30-day view (cumulative hours with daily volume) and a path-to-exam view, a time & sales tape of recent sessions, and a watchlist of topics with week-on-week change.
 - **Levels**: switch between CFA Level I, II and III in the header. Each level has its own topics, hours and grid. For Level III, pick your pathway (Portfolio Management, Private Wealth or Private Markets) in Topics or Setup.
 - **Study**: a Pomodoro timer with a desk cam. The market is open while you're in frame. Walk away and trading halts until you're back. Breaks don't need the camera. Keys: `Space` open/halt, `S` skip, `R` reset. Blocks and breaks start by themselves (both optional in Setup), with a sound and an in-page alert at each change and a 1-minute warning before each one ends.
 - **Topics**: the curriculum for each level as a checklist. Rename, re-ticker, add or delist anything to match your curriculum year. The Level II and III module lists follow the recent curriculum structure; check them against yours.
 - **Milestones**: crossing 10, 25, 50, 100, 150, 200, 250, 300 and 301 hours triggers a breaking-news banner.
 - **Sync & accounts**: data is saved in the browser and synced to a small database on Vercel. Either sign in with Google (one account per person, so others can use it too) or use a single passcode.
 - **General study (GEN)**: time logged without a topic counts towards your totals and shows as its own GEN line in the watchlist, ticker and heatmap, but is never rated against the exam.
+- **Phone check**: with the camera on, a phone in frame halts the study clock ("PHONE IN HAND"), and pickups are counted. Switch it off on the Study page or in Setup.
+- **End-of-block wrap-up**: after each block, optionally rate your focus (1–5), note what you covered, tie it to a module (finishing it is optional) and log practice questions. Turn the whole thing or individual questions off in Setup. Notes show per module on Topics.
+- **Focus mode** (`F`): a full-screen countdown with the desk-cam light and today's target; the screen is kept awake while the timer runs.
+- **Study plan**: queue blocks by topic/module on the Study page; each new block loads the next one and finished blocks tick off.
+- **Flashcards**: your own cards per topic (Topics → FLASHCARDS; add one by one or paste `front | back` lines). They appear during breaks and in focus mode, using a Leitner box system (GOT IT = seen less often, AGAIN = back to box 1).
+- **Break gate** (optional, Setup → Flashcards → GATE THE BREAK): the break unlocks only after you answer 1–5 cards (or get them right, in strict mode). It runs after the wrap-up, the break clock waits until you're done, and skipping is allowed but shows in the 10-K.
+- **Auto-plan today**: one button on the Study page builds today's plan from reviews due, topics underweight against the exam and topics below your score target, with the reason for each block.
+- **Rest days** (Setup → Goals): weekdays and specific dates off. They never break your streak or lower your credit rating, and the daily pace only counts study days.
 - **Analyst ratings**: each topic's share of your hours vs its share of the exam: UNDERWEIGHT · BUY, MARKET WEIGHT · HOLD or OVERWEIGHT · TRIM, plus a "top pick" to study next.
 - **Earnings**: log question-bank sets and mock exams; each one BEATs or MISSes your target score (70% by default), with accuracy per topic and a mock-exam trend.
 - **Revision schedule**: ticked modules come back for review after 1, 7 and 30 days ("maturing" on the dashboard).
@@ -20,7 +28,11 @@ Styled as a trading terminal. Your study hours trade as `$CFA1`, `$CFA2` or `$CF
 - **Mini-terminal**: pop the timer out into an always-on-top window (Chrome/Edge; a small window elsewhere).
 - **Focus sounds**: optional brown noise, rain or trading-floor ambience during study blocks.
 - **Installable**: add it to your dock or home screen; it opens offline, and the timer survives a reload.
-- **Navigation**: keys `1`–`4` switch between Dashboard, Study, Topics and Setup.
+- **Path to exam** (dashboard chart, `TO EXAM` tab): your actual hours against the straight-line path to your goal on exam day (flat on rest days), with a projection at your last-14-days pace. The PACE figure in the quote strip says how far ahead or behind the path you are today.
+- **Tab countdown**: the browser tab shows the running clock (`▶ 18:42 · FI`), so you can see it from another tab.
+- **Themes** (Setup → App): Amber, Phosphor green, Reuters blue or Paper (light).
+- **On a phone**: the pages sit in a bottom tab bar, and alerts pop up bottom-right on desktop, above the tab bar on phones.
+- **Navigation**: keys `1`–`5` switch between Dashboard, Study, Topics, Earnings and Setup; `6` opens About.
 
 ## How the presence check works
 

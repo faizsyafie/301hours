@@ -288,14 +288,26 @@ export const DEFAULT_SETTINGS = {
   longEvery: 4,
   graceSec: 6,
   presence: true,
+  phoneCheck: true,
+  wrapUp: true,
+  wakeLock: true,
+  breakCards: true,
+  gateCount: 2,
+  gateStrict: false,
+  wrapFocus: true,
+  wrapNotes: true,
+  wrapModule: true,
+  wrapQuestions: true,
   autoStartBreak: true,
   autoStartStudy: true,
   alerts: true,
   sound: true,
   celebrated: [],
+  restWeekdays: [],
+  restDates: [],
   scoreTarget: 70,
 };
 
 export function defaultDoc() {
-  return { v: 1, updatedAt: 0, settings: { ...DEFAULT_SETTINGS }, topics: defaultTopics(), sessions: [], scores: [] };
+  return { v: 1, updatedAt: 0, settings: { ...DEFAULT_SETTINGS }, topics: defaultTopics(), sessions: [], scores: [], cards: [] };
 }

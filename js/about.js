@@ -14,7 +14,7 @@ const HTML = `
     </div>
     <ul class="about-list">
       <li><b>DASH</b> Hours, pace, 301-hour grid</li>
-      <li><b>STUDY</b> Pomodoro + desk cam (video stays on device)</li>
+      <li><b>STUDY</b> Pomodoro, desk cam, phone check, plan, flashcards</li>
       <li><b>TOPICS</b> Level I–III checklist + reviews</li>
       <li><b>EARNINGS</b> Practice scores: BEAT or MISS</li>
       <li><b>RATINGS</b> BUY/HOLD/TRIM, AAA–CCC, 10-K</li>
@@ -25,6 +25,7 @@ const HTML = `
       <span><kbd>SPACE</kbd> open/halt</span>
       <span><kbd>S</kbd> skip</span>
       <span><kbd>R</kbd> reset</span>
+      <span><kbd>F</kbd> focus</span>
       <span><kbd>P</kbd> pop out</span>
     </div>
     <div class="about-links">

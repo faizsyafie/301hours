@@ -7,6 +7,7 @@ import { showReport, weekReport } from './report.js';
 import { setTopic } from './timer.js';
 import { schedule, act as reviewAct } from './reviews.js';
 import { heatmapPanel } from './heatmap.js';
+import { onTrackData, drawOnTrack, onTrackTable, paceCell } from './ontrack.js';
 import { esc, hours, duration, dayKey, startOfDay, shortDate, timeOfDay } from './util.js';
 
 const CHART_DAYS = 30;
@@ -38,8 +39,8 @@ export function showCredit() {
   const body = cr.grade === 'NR'
     ? `<p>Not rated yet. Study on ${cr.needDays} more day${cr.needDays === 1 ? '' : 's'} to get your first rating.</p>`
     : `<div class="cr-head"><span class="cr-grade">${cr.grade}</span><div><div>SCORE <b>${cr.score.toFixed(0)}</b>/100 · OUTLOOK <b class="outlook ${cr.outlook.toLowerCase()}">${cr.outlook}</b></div><div class="muted small">Last ${cr.days} days, ${symbol()}. Outlook compares the last 7 days with the 7 before.</div></div></div>
-       ${bar('CONSISTENCY', cr.parts.consistency, 40, `${cr.studied}/${cr.days} days studied`)}
-       ${bar('TARGET', cr.parts.target, 30, `${cr.hit}/${cr.days} days hit ${s.dailyGoalHours || 0}h`)}
+       ${bar('CONSISTENCY', cr.parts.consistency, 40, `${cr.studied}/${cr.counted} days studied${cr.rest ? ` · ${cr.rest} rest day${cr.rest === 1 ? '' : 's'} excluded` : ''}`)}
+       ${bar('TARGET', cr.parts.target, 30, `${cr.hit}/${cr.counted} days hit ${s.dailyGoalHours || 0}h`)}
        ${bar('CAMERA', cr.parts.camera, 15, 'share of time verified')}
        ${bar('STREAK', cr.parts.streak, 15, `${st.streak} day streak`)}`;
   return panel('CREDIT RATING', `${body}<p class="muted small cr-scale">AAA ≥90 · AA ≥80 · A ≥70 · BBB ≥60 · BB ≥50 · B ≥40 · CCC below</p>`);
@@ -62,10 +63,10 @@ function quote(st) {
   const pct = prev > 0 ? (todayH / prev) * 100 : 0;
   const exam = examCountdown();
   const remaining = Math.max(0, s.goalHours - totalH);
-  const req = exam && exam.days > 0 ? (remaining / exam.days).toFixed(2) : '—';
+  const req = exam && exam.days > 0 ? (remaining / Math.max(1, exam.studyDays)).toFixed(2) : '—';
   const mods = st.topics.reduce((a, t) => ({ done: a.done + t.done, total: a.total + t.total }), { done: 0, total: 0 });
 
-  const cell = (k, v, cls = '') => `<div class="qcell"><span class="k">${k}</span><span class="v ${cls}">${v}</span></div>`;
+  const cell = (k, v, cls = '', title = '') => `<div class="qcell"${title ? ` title="${title}"` : ''}><span class="k">${k}</span><span class="v ${cls}">${v}</span></div>`;
 
   return `
     <section class="panel quote">
@@ -86,6 +87,7 @@ function quote(st) {
         ${cell('REM', remaining.toFixed(2))}
         ${cell('EXAM', exam ? (exam.days > 0 ? `T-${exam.days}D` : 'DONE') : '<a href="#/settings">SET</a>')}
         ${cell('REQ/D', req, exam && exam.days > 0 && st.today / 3600 >= Number(req) ? 'up' : '')}
+        ${(() => { const pc = paceCell(onTrackData()); return cell('PACE', pc.text, pc.cls, pc.title); })()}
         ${cell('WK', (st.week / 3600).toFixed(2))}
         ${cell('STRK', `${st.streak}D`, st.streak ? 'up' : '')}
         ${(() => { const cr = creditRating(st, s.dailyGoalHours); return cell('RATING', `<button type="button" class="credit" data-credit title="How this is calculated">${cr.grade}${cr.outlook ? ` <span class="outlook ${cr.outlook.toLowerCase()}">${{ POSITIVE: '▲', NEGATIVE: '▼', STABLE: '■' }[cr.outlook]}</span>` : ''}</button>`); })()}
@@ -300,9 +302,9 @@ function tape(st) {
     ? recent.map((s) => {
       const t = topics.get(s.topicId);
       const flag = s.manual ? 'MAN' : s.verified ? 'CAM' : 'NOCAM';
-      return `<tr><td class="muted">${shortDate(s.start).toUpperCase()} ${timeOfDay(s.start)}</td><td class="tk">${t ? esc(tickerOf(t)) : 'GEN'}</td><td class="num up">${duration(s.sec)}</td><td class="flag flag-${flag.toLowerCase()}">${flag}</td></tr>`;
+      return `<tr${s.note ? ` title="${esc(s.note)}"` : ''}><td class="muted">${shortDate(s.start).toUpperCase()} ${timeOfDay(s.start)}</td><td class="tk">${t ? esc(tickerOf(t)) : 'GEN'}</td><td class="num up">${duration(s.sec)}</td><td class="focus-dots" title="${s.focus ? `Focus ${s.focus}/5` : ''}">${s.focus ? '●'.repeat(s.focus) : ''}${s.note ? ' ✎' : ''}</td><td class="flag flag-${flag.toLowerCase()}">${flag}</td></tr>`;
     }).join('')
-    : '<tr><td colspan="4" class="muted empty">NO TRADES YET. THE CURRICULUM ISN\'T GOING TO READ ITSELF.</td></tr>';
+    : '<tr><td colspan="5" class="muted empty">NO TRADES YET. THE CURRICULUM ISN\'T GOING TO READ ITSELF.</td></tr>';
   return `
     <section class="panel">
       <div class="phead"><span>TIME &amp; SALES</span><span class="muted">LAST 10</span></div>
@@ -310,17 +312,23 @@ function tape(st) {
     </section>`;
 }
 
+const VIEW_KEY = '301hours:chartView';
+
 export function renderDashboard(root) {
   const st = stats();
   const days = chartData(st);
+  let view = '30d';
+  try { view = localStorage.getItem(VIEW_KEY) || '30d'; } catch { /* ignore */ }
+  const track = onTrackData();
   root.innerHTML = `
     ${quote(st)}
     ${grid(st)}
     <div class="row-2">
       <section class="panel">
-        <div class="phead"><span>${symbol()} · ${CHART_DAYS}D</span><span class="muted">HOVER FOR DETAIL</span></div>
+        <div class="phead"><span>${symbol()} · ${view === 'exam' ? 'PATH TO EXAM' : `${CHART_DAYS}D`}</span>
+          <span class="chart-tabs seg" role="tablist"><button type="button" data-view="30d" aria-selected="${view !== 'exam'}">30D</button><button type="button" data-view="exam" aria-selected="${view === 'exam'}">TO EXAM</button></span></div>
         <div class="chart"></div>
-        ${chartTable(days)}
+        ${view === 'exam' ? onTrackTable(track) : chartTable(days)}
       </section>
       ${tape(st)}
     </div>
@@ -331,9 +339,14 @@ export function renderDashboard(root) {
     ${watchlist(st)}`;
 
   const chart = root.querySelector('.chart');
-  drawChart(chart, days);
-  const ro = new ResizeObserver(() => drawChart(chart, days));
+  const draw = () => (view === 'exam' ? drawOnTrack(chart, track) : drawChart(chart, days));
+  draw();
+  const ro = new ResizeObserver(draw);
   ro.observe(chart);
+  root.querySelectorAll('.chart-tabs [data-view]').forEach((b) => b.addEventListener('click', () => {
+    try { localStorage.setItem(VIEW_KEY, b.dataset.view); } catch { /* ignore */ }
+    renderDashboard(root);
+  }));
 
   const gridTip = root.querySelector('.grid-tip');
   root.querySelector('.grid301').addEventListener('pointerover', (e) => {

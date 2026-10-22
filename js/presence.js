@@ -10,6 +10,7 @@
 //
 // presence.state: 'off' | 'loading' | 'ready' | 'error'
 // presence.seen:  whether someone is at the desk right now (after smoothing)
+// presence.phone: whether a phone is in frame (optional phone check)
 const VISION_VERSION = '0.10.14';
 export const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
 const MODELS = 'https://storage.googleapis.com/mediapipe-models';
@@ -18,6 +19,7 @@ const PERSON_MODEL = `${MODELS}/object_detector/efficientdet_lite0/float16/1/eff
 const POSE_MODEL = `${MODELS}/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task`;
 const FACE_MIN = 0.6;    // chairs, pets and posters score below ~0.5 in testing
 const PERSON_MIN = 0.5;
+const PHONE_MIN = 0.4;   // phone check; no false phones on faces or furniture in testing
 const SAMPLE_MS = 500;
 const WINDOW = 3;        // smoothing: frames considered
 const NEEDED = 2;        // ...of which this many must be positive
@@ -35,17 +37,24 @@ export const presence = {
   lastCheck: 0,
   box: null,
   reason: '',            // 'face' | 'body' | '' - what the last positive frame was based on
-  scores: { face: 0, person: 0, pose: false },
+  scores: { face: 0, person: 0, pose: false, phone: 0 },
+  phone: false,          // a phone in frame (after smoothing), when the phone check is on
+  phoneBox: null,
 };
 
 let models = null;
 let stream = null;
 let loop = null;
 let history = [];
+let phoneHistory = [];
 
 // One <video> element for the whole app; views move it in and out of the page.
 export const video = Object.assign(document.createElement('video'), { muted: true, playsInline: true, autoplay: true });
 video.className = 'cam-video';
+
+// The phone check is a setting; read it lazily so this module stays independent.
+let phoneCheckOn = () => false;
+export function setPhoneCheckSource(fn) { phoneCheckOn = fn; }
 
 export function onPresence(fn) {
   listeners.add(fn);
@@ -63,7 +72,7 @@ async function createModels() {
   const base = (modelAssetPath) => ({ modelAssetPath, delegate: 'CPU' });
   const [face, person, pose] = await Promise.all([
     FaceDetector.createFromOptions(fileset, { baseOptions: base(FACE_MODEL), runningMode: 'VIDEO', minDetectionConfidence: 0.3 }),
-    ObjectDetector.createFromOptions(fileset, { baseOptions: base(PERSON_MODEL), runningMode: 'VIDEO', scoreThreshold: 0.2, categoryAllowlist: ['person'], maxResults: 1 }),
+    ObjectDetector.createFromOptions(fileset, { baseOptions: base(PERSON_MODEL), runningMode: 'VIDEO', scoreThreshold: 0.2, categoryAllowlist: ['person', 'cell phone'], maxResults: 5 }),
     PoseLandmarker.createFromOptions(fileset, { baseOptions: base(POSE_MODEL), runningMode: 'VIDEO', numPoses: 1 }),
   ]);
   return { face, person, pose };
@@ -79,33 +88,50 @@ function scheduleDetect() {
 
 // Runs the models on one frame. Returns { hit, reason, box } with box in
 // 0-1 video coordinates. Cheapest check first; later models only run if needed.
-function analyse(ts) {
+// Runs the models on one frame. Returns { hit, reason, box, phone } with box
+// in 0-1 video coordinates. Cheapest check first; later models only run if
+// needed (the object detector always runs when the phone check is on).
+function analyse(ts, wantPhone) {
   const W = video.videoWidth, H = video.videoHeight;
   const norm = (b) => ({ x: b.originX / W, y: b.originY / H, w: b.width / W, h: b.height / H });
+  let objects = null;
+  const detectObjects = () => (objects ||= models.person.detectForVideo(video, ts).detections);
+  const best = (name) => detectObjects().filter((d) => d.categories[0].categoryName === name)
+    .reduce((b, d) => (d.categories[0].score > (b?.categories[0].score ?? 0) ? d : b), null);
+
+  let phone = null;
+  if (wantPhone) {
+    phone = best('cell phone');
+    presence.scores.phone = phone?.categories[0].score ?? 0;
+  } else {
+    presence.scores.phone = 0;
+  }
+  const phoneHit = presence.scores.phone >= PHONE_MIN;
+  const phoneBox = phoneHit ? norm(phone.boundingBox) : null;
 
   const faces = models.face.detectForVideo(video, ts).detections;
-  const face = faces.reduce((best, d) => (d.categories[0].score > (best?.categories[0].score ?? 0) ? d : best), null);
+  const face = faces.reduce((b, d) => (d.categories[0].score > (b?.categories[0].score ?? 0) ? d : b), null);
   presence.scores.face = face?.categories[0].score ?? 0;
   if (presence.scores.face >= FACE_MIN) {
     presence.scores.person = 0;
     presence.scores.pose = false;
-    return { hit: true, reason: 'face', box: norm(face.boundingBox) };
+    return { hit: true, reason: 'face', box: norm(face.boundingBox), phone: phoneHit, phoneBox };
   }
 
-  const person = models.person.detectForVideo(video, ts).detections[0];
+  const person = best('person');
   presence.scores.person = person?.categories[0].score ?? 0;
   presence.scores.pose = false;
-  if (presence.scores.person < PERSON_MIN) return { hit: false };
+  if (presence.scores.person < PERSON_MIN) return { hit: false, phone: phoneHit, phoneBox };
 
   const box = norm(person.boundingBox);
   const lm = models.pose.detectForVideo(video, ts).landmarks[0];
-  if (!lm) return { hit: false };
+  if (!lm) return { hit: false, phone: phoneHit, phoneBox };
   // Shoulder midpoint (landmarks 11, 12) must sit inside the person box.
   const sx = (lm[11].x + lm[12].x) / 2;
   const sy = (lm[11].y + lm[12].y) / 2;
   const pad = 0.05;
   presence.scores.pose = sx > box.x - pad && sx < box.x + box.w + pad && sy > box.y - pad && sy < box.y + box.h + pad;
-  return presence.scores.pose ? { hit: true, reason: 'body', box } : { hit: false };
+  return presence.scores.pose ? { hit: true, reason: 'body', box, phone: phoneHit, phoneBox } : { hit: false, phone: phoneHit, phoneBox };
 }
 
 function detect() {
@@ -113,12 +139,15 @@ function detect() {
   const now = Date.now();
   let frame;
   try {
-    frame = analyse(performance.now());
+    frame = analyse(performance.now(), phoneCheckOn());
   } catch {
     return;
   }
   history = [...history, frame.hit].slice(-WINDOW);
+  phoneHistory = [...phoneHistory, frame.phone].slice(-WINDOW);
   presence.seen = history.filter(Boolean).length >= NEEDED;
+  presence.phone = phoneHistory.filter(Boolean).length >= NEEDED;
+  presence.phoneBox = frame.phoneBox || (presence.phone ? presence.phoneBox : null);
   presence.lastCheck = now;
   if (presence.seen) presence.lastSeen = now;
   if (frame.hit) {
@@ -149,6 +178,7 @@ export async function startCamera() {
     presence.state = 'ready';
     presence.lastSeen = 0;
     history = [];
+    phoneHistory = [];
     scheduleDetect();
   } catch (err) {
     presence.state = 'error';
@@ -170,6 +200,7 @@ export function stopCamera() {
   stopStream();
   presence.state = 'off';
   presence.seen = false;
+  presence.phone = false;
   presence.box = null;
   emit();
 }

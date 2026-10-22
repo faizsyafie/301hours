@@ -1,6 +1,9 @@
 import { store, save, subscribe } from './store.js';
 import { timer, onTimer, toggle, skip, restart, switchTo, setTopic, phaseLengthSec, remainingSec } from './timer.js';
 import { openMini, miniMode } from './pip.js';
+import { toggleFocus, targetLine, isFocusMode } from './focus.js';
+import { planPanel, wirePlan, bindPlanSelects } from './plan.js';
+import { mountReview, cardMode } from './cards.js';
 import { ambient, MODES, setMode, setVolume, preview } from './ambient.js';
 import { presence, onPresence, startCamera, stopCamera, isPresent, video } from './presence.js';
 import { levelTopics, currentLevel, sessionLevel, tickerOf, stats } from './model.js';
@@ -39,8 +42,9 @@ export function renderStudy(root) {
   const s = store.doc.settings;
   root.innerHTML = `
     <div class="study">
+      <div class="main-col">
       <section class="panel timer-panel" data-phase="${timer.phase}">
-        <div class="phead"><span>SESSION</span><span class="muted">SPACE OPEN/HALT · S SKIP · R RESET · P POP OUT</span></div>
+        <div class="phead"><span>SESSION</span><span class="muted keys" title="Space: open / halt · S: skip · R: reset · F: focus mode · P: pop out">⌨ SPACE · S · R · F · P</span></div>
         <div class="seg" role="tablist">
           ${Object.entries(PHASES).map(([k, v]) => `<button type="button" role="tab" data-phase="${k}" aria-selected="${k === timer.phase}">${v}</button>`).join('')}
         </div>
@@ -55,32 +59,41 @@ export function renderStudy(root) {
           <button type="button" class="btn" data-act="skip" title="End this block now (S)">SKIP ▸</button>
         </div>
         <div class="popout-row">
+          <button type="button" class="btn small" data-act="focus" title="Full-screen countdown (F)">⛶ FOCUS MODE</button>
           <button type="button" class="btn small" data-act="popout" title="${miniMode === 'pip' ? 'Always-on-top mini window (P)' : 'Small separate window (P)'}">⧉ POP OUT MINI-TERMINAL</button>
-          <span class="note">${miniMode === 'pip' ? 'Stays on top of other windows, so you can read your notes and still see the clock.' : 'Opens a small window. Pinning it on top needs Chrome or Edge.'}</span>
         </div>
         <div class="fields">
           <label>TOPIC<select name="topic">${topicOptions(timer.topicId)}</select></label>
           <label>MODULE<select name="item">${moduleOptions(timer.topicId)}</select></label>
         </div>
+        <div class="target-row"></div>
         <div class="pick-row"></div>
         <div class="kv-row">
           <div><span class="k">TODAY</span><span class="v today"></span></div>
           <div><span class="k">BLOCKS</span><span class="v blocks"></span></div>
-          <div><span class="k">AWAY</span><span class="v away-time"></span></div>
+          <div><span class="k">HALTED</span><span class="v away-time"></span></div>
           <div><span class="k">WALKOUTS</span><span class="v walkouts"></span></div>
+          <div><span class="k">PICKUPS</span><span class="v pickups"></span></div>
         </div>
       </section>
+      <section class="panel card-panel" hidden></section>
+      <section class="panel plan-panel"></section>
+      </div>
 
       <div class="side">
         <section class="panel cam-panel">
           <div class="phead">
             <span>DESK CAM</span>
-            <label class="switch"><input type="checkbox" name="presence" ${s.presence ? 'checked' : ''}> PRESENCE CHECK</label>
+            <span class="row" style="gap:12px">
+              <label class="switch"><input type="checkbox" name="presence" ${s.presence ? 'checked' : ''}> PRESENCE</label>
+              <label class="switch"><input type="checkbox" name="phoneCheck" ${s.phoneCheck !== false ? 'checked' : ''}> PHONE CHECK</label>
+            </span>
           </div>
           <div class="onair" data-state="off"><span class="lamp"></span><span class="onair-text"></span></div>
           <div class="readout" hidden></div>
           <div class="cam" data-state="off">
             <div class="cam-box" hidden></div>
+            <div class="cam-box phone-box" hidden></div>
             <div class="cam-placeholder"></div>
             <div class="scan"></div>
           </div>
@@ -88,24 +101,30 @@ export function renderStudy(root) {
             <button type="button" class="btn" data-act="camera"></button>
             <label class="check"><input type="checkbox" name="hidePreview" ${hidePreview() ? 'checked' : ''}> HIDE VIDEO</label>
           </div>
-          <p class="note">The clock only runs while you're at the desk. Leave for more than <b>${s.graceSec}s</b> and trading halts until you're back. Breaks don't need the camera. It needs a confident face, or your body and posture confirmed by two separate models, so chairs and coats don't count. Detection runs on this device; no video is uploaded or stored.</p>
-          <p class="note">Keep this tab visible. Browsers throttle background tabs, so a separate window works best.</p>
+          <details class="info">
+            <summary>ⓘ HOW IT WORKS</summary>
+            <ul>
+              <li>The clock runs only while you're in frame; away for ${s.graceSec}s+ halts it. Breaks don't need the camera.</li>
+              <li>A chair or coat won't count: it needs a face, or your body confirmed by two models. A phone in frame halts it too.</li>
+              <li>Runs on this device; no video is uploaded. Keep this tab visible (or pop out the mini-terminal).</li>
+            </ul>
+          </details>
         </section>
 
-        <section class="panel">
-          <div class="phead"><span>FOCUS SOUND</span><span class="muted">PLAYS DURING STUDY BLOCKS · MUTES ON BREAKS</span></div>
-          <div class="row ambient-row">
+        <section class="panel extras">
+          <div class="seg extras-tabs" role="tablist">
+            <button type="button" role="tab" data-tab="sound" aria-selected="true">♪ FOCUS SOUND</button>
+            <button type="button" role="tab" data-tab="log" aria-selected="false">+ LOG TIME</button>
+          </div>
+          <div class="extras-pane" data-pane="sound">
+          <div class="row ambient-row" title="Plays during study blocks, mutes on breaks">
             <select name="ambient">${Object.entries(MODES).map(([k, v]) => `<option value="${k}" ${k === ambient.mode ? 'selected' : ''}>${v}</option>`).join('')}</select>
             <label class="vol">VOL <input type="range" name="ambVol" min="0" max="100" value="${ambient.volume}"></label>
             <button type="button" class="btn small" data-act="preview">▶ PREVIEW</button>
           </div>
-        </section>
-
-        <section class="panel">
-          <details class="manual">
-            <summary class="phead"><span>OFF-DESK ENTRY</span><span class="muted">LOG TIME MANUALLY ▾</span></summary>
-            <p class="note">For study away from the camera, like the commute. It's flagged MAN on the tape.</p>
-            <form class="manual-form">
+          </div>
+          <div class="extras-pane" data-pane="log" hidden>
+            <form class="manual-form" title="Study away from the camera, e.g. the commute. Flagged MAN on the tape.">
               <div class="fields">
                 <label>TOPIC<select name="mtopic">${topicOptions(timer.topicId)}</select></label>
                 <label>DATE<input type="date" name="mdate" value="${dayKey(Date.now())}" max="${dayKey(Date.now())}"></label>
@@ -114,21 +133,27 @@ export function renderStudy(root) {
               <button class="btn" type="submit">BOOK IT</button>
               <span class="note saved" hidden>Booked.</span>
             </form>
-          </details>
+          </div>
         </section>
       </div>
     </div>`;
+
+  root.querySelectorAll('.extras-tabs [data-tab]').forEach((b) => b.addEventListener('click', () => {
+    root.querySelectorAll('.extras-tabs [data-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    root.querySelectorAll('.extras-pane').forEach((pane) => { pane.hidden = pane.dataset.pane !== b.dataset.tab; });
+  }));
 
   const camEl = $('.cam', root);
   camEl.prepend(video);
   video.play().catch(() => {});
 
 
-  root.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.phase)));
+  root.querySelectorAll('.timer-panel .seg button').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.phase)));
   $('[data-act="toggle"]', root).addEventListener('click', toggle);
   $('[data-act="skip"]', root).addEventListener('click', skip);
   $('[data-act="restart"]', root).addEventListener('click', restart);
   $('[data-act="popout"]', root).addEventListener('click', openMini);
+  $('[data-act="focus"]', root).addEventListener('click', toggleFocus);
   $('[data-act="camera"]', root).addEventListener('click', () => (presence.state === 'off' || presence.state === 'error' ? startCamera() : stopCamera()));
 
   const topicSel = $('[name="topic"]', root);
@@ -139,6 +164,29 @@ export function renderStudy(root) {
     itemSel.disabled = !topicSel.value;
   });
   itemSel.disabled = !timer.topicId;
+
+  // Break cards panel (filled in update()).
+  const cardEl = $('.card-panel', root);
+  let cardPhase = '';
+  let lastTopic = timer.topicId;
+
+  // Study plan panel.
+  const planEl = $('.plan-panel', root);
+  const drawPlan = () => {
+    // Keep the half-filled "add" row when redrawing.
+    const keep = ['planTopic', 'planItem', 'planCount'].map((n) => planEl.querySelector(`[name="${n}"]`)?.value);
+    planEl.innerHTML = planPanel();
+    bindPlanSelects(planEl);
+    const [t, i, c] = keep;
+    if (t !== undefined) {
+      planEl.querySelector('[name="planTopic"]').value = t;
+      planEl.querySelector('[name="planTopic"]').dispatchEvent(new Event('change'));
+      if (i) planEl.querySelector('[name="planItem"]').value = i;
+      if (c) planEl.querySelector('[name="planCount"]').value = c;
+    }
+  };
+  drawPlan();
+  wirePlan(planEl, drawPlan);
 
   // Analyst pick: the most underweight topic, one click to study it.
   const showPick = () => {
@@ -167,6 +215,12 @@ export function renderStudy(root) {
   $('[name="ambient"]', root).addEventListener('change', (e) => { setMode(e.target.value); preview(); });
   $('[name="ambVol"]', root).addEventListener('input', (e) => setVolume(e.target.value));
   $('[data-act="preview"]', root).addEventListener('click', preview);
+  $('[name="phoneCheck"]', root).addEventListener('change', (e) => {
+    store.doc.settings.phoneCheck = e.target.checked;
+    store.doc.settings.u = Date.now();
+    save();
+    update();
+  });
   $('[name="hidePreview"]', root).addEventListener('change', (e) => {
     try { localStorage.setItem(PREVIEW_KEY, e.target.checked ? '1' : '0'); } catch { /* ignore */ }
     update();
@@ -189,11 +243,13 @@ export function renderStudy(root) {
   });
 
   const onKey = (e) => {
-    if (e.target.closest('input, select, textarea, button, summary') || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    if (e.target.closest('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey || isFocusMode()) return;
+    // Space on a focused button already clicks it; letter shortcuts work anywhere.
+    if (e.code === 'Space') { if (!e.target.closest('button, summary')) { e.preventDefault(); toggle(); } }
     else if (e.key === 's') skip();
     else if (e.key === 'r') restart();
     else if (e.key === 'p') openMini();
+    else if (e.key === 'f') toggleFocus();
   };
   document.addEventListener('keydown', onKey);
 
@@ -201,7 +257,7 @@ export function renderStudy(root) {
     const settings = store.doc.settings;
     const panel = $('.timer-panel', root);
     panel.dataset.phase = timer.phase;
-    root.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.phase === timer.phase)));
+    root.querySelectorAll('.timer-panel .seg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.phase === timer.phase)));
 
     const total = phaseLengthSec();
     const left = remainingSec();
@@ -209,11 +265,13 @@ export function renderStudy(root) {
     $('.bar-fill', root).style.width = `${Math.min(100, ((total - left) / total) * 100)}%`;
 
     let state, cls;
-    if (!timer.running) {
+    if (timer.gate) { state = '◆ BREAK LOCKED · ANSWER CARDS TO UNLOCK'; cls = 'break'; }
+    else if (!timer.running) {
       cls = 'idle';
       state = timer.elapsedMs ? '■ HALTED · PAUSED' : timer.phase === 'study' ? '○ PRE-MARKET · PRESS SPACE TO OPEN' : '◆ BREAK READY';
     } else if (timer.phase !== 'study') { state = '◆ MARKET CLOSED · BREAK'; cls = 'break'; }
     else if (timer.counting) { state = '● MARKET OPEN'; cls = 'on'; }
+    else if (timer.halt === 'phone') { state = '■ HALTED · PHONE IN HAND · PUT IT DOWN'; cls = 'away'; }
     else if (settings.presence && presence.state !== 'ready') { state = presence.state === 'loading' ? '… CONNECTING DESK CAM' : '■ HALTED · DESK CAM OFFLINE'; cls = 'away'; }
     else { state = '■ TRADING HALTED · TRADER AWAY FROM DESK'; cls = 'away'; }
     const statusEl = $('.status', root);
@@ -221,16 +279,35 @@ export function renderStudy(root) {
     statusEl.className = `status ${cls}`;
     panel.dataset.state = cls;
 
-    $('[data-act="toggle"]', root).textContent = timer.running ? '■ HALT' : timer.elapsedMs ? '▶ RESUME' : timer.phase === 'study' ? '▶ OPEN MARKET' : '▶ START BREAK';
+    $('[data-act="toggle"]', root).textContent = timer.gate ? '▶ UNLOCK BREAK' : timer.running ? '■ HALT' : timer.elapsedMs ? '▶ RESUME' : timer.phase === 'study' ? '▶ OPEN MARKET' : '▶ START BREAK';
     $('.today', root).textContent = duration(todaySec());
     $('.blocks', root).textContent = String(timer.completed);
     $('.away-time', root).textContent = clock(timer.awayMs / 1000);
+    $('.target-row', root).innerHTML = targetLine();
+    // Break cards: one review session per break.
+    const onBreak = timer.phase !== 'study' && !timer.gate && cardMode() === 'break';
+    cardEl.hidden = !onBreak;
+    if (onBreak && cardPhase !== timer.phase + timer.completed) {
+      cardPhase = timer.phase + timer.completed;
+      mountReview(cardEl, { topicId: () => lastTopic });
+    }
+    if (timer.phase === 'study') lastTopic = timer.topicId;
+    // The plan (or another device) may have switched topic: keep the menus in step.
+    if (topicSel.value !== timer.topicId) {
+      topicSel.value = timer.topicId;
+      itemSel.innerHTML = moduleOptions(timer.topicId);
+      itemSel.disabled = !timer.topicId;
+      showPick();
+    }
+    if (itemSel.value !== timer.itemId && timer.topicId) itemSel.value = timer.itemId;
     $('.walkouts', root).textContent = String(timer.walkouts);
+    $('.pickups', root).textContent = String(timer.pickups);
 
     // Desk cam
     const hide = hidePreview();
     const present = isPresent(settings.graceSec);
-    const camState = presence.state !== 'ready' ? presence.state : presence.seen ? 'seen' : present ? 'grace' : 'away';
+    const phoneOn = settings.phoneCheck !== false && presence.state === 'ready' && presence.phone;
+    const camState = presence.state !== 'ready' ? presence.state : phoneOn ? 'phone' : presence.seen ? 'seen' : present ? 'grace' : 'away';
     camEl.dataset.state = camState;
     camEl.classList.toggle('hidden-preview', hide);
     const onair = $('.onair', root);
@@ -242,6 +319,7 @@ export function renderStudy(root) {
       seen: 'AT DESK',
       grace: 'LOOKING FOR YOU…',
       away: 'AWAY FROM DESK',
+      phone: 'PHONE IN HAND',
     }[camState];
     $('.cam-placeholder', root).textContent = presence.state === 'ready' && hide ? 'VIDEO HIDDEN · STILL WATCHING' : presence.state === 'off' ? 'NO SIGNAL' : '';
     $('[data-act="camera"]', root).textContent = presence.state === 'off' || presence.state === 'error' ? 'CAM ON' : 'CAM OFF';
@@ -251,7 +329,7 @@ export function renderStudy(root) {
     if (presence.state === 'ready') {
       const sc = presence.scores;
       const val = (v) => (v ? v.toFixed(2) : '—');
-      readout.innerHTML = `FACE <b class="${sc.face >= 0.6 ? 'up' : ''}">${val(sc.face)}</b> · BODY <b class="${sc.person >= 0.5 ? 'up' : ''}">${val(sc.person)}</b> · POSE <b class="${sc.pose ? 'up' : ''}">${sc.pose ? 'MATCH' : '—'}</b> · VIA <b>${presence.reason ? presence.reason.toUpperCase() : '—'}</b>`;
+      readout.innerHTML = `${settings.phoneCheck !== false ? `PHONE <b class="${sc.phone >= 0.4 ? 'down' : ''}">${val(sc.phone)}</b> · ` : ''}FACE <b class="${sc.face >= 0.6 ? 'up' : ''}">${val(sc.face)}</b> · BODY <b class="${sc.person >= 0.5 ? 'up' : ''}">${val(sc.person)}</b> · POSE <b class="${sc.pose ? 'up' : ''}">${sc.pose ? 'MATCH' : '—'}</b> · VIA <b>${presence.reason ? presence.reason.toUpperCase() : '—'}</b>`;
     }
 
     const box = $('.cam-box', root);
@@ -262,11 +340,19 @@ export function renderStudy(root) {
     } else {
       box.hidden = true;
     }
+    const pbox = $('.phone-box', root);
+    if (phoneOn && presence.phoneBox && !hide) {
+      const b = presence.phoneBox;
+      Object.assign(pbox.style, { left: `${(1 - b.x - b.w) * 100}%`, top: `${b.y * 100}%`, width: `${b.w * 100}%`, height: `${b.h * 100}%` });
+      pbox.hidden = false;
+    } else {
+      pbox.hidden = true;
+    }
   }
 
   update();
   let lastPhase = timer.phase;
-  const offs = [onTimer(update), onPresence(update), subscribe(showPick), onTimer(() => { if (timer.phase !== lastPhase) { lastPhase = timer.phase; showPick(); } })];
+  const offs = [onTimer(update), onPresence(update), subscribe(showPick), subscribe(() => update()), subscribe(() => { if (!planEl.contains(document.activeElement)) drawPlan(); }), onTimer(() => { if (timer.phase !== lastPhase) { lastPhase = timer.phase; showPick(); } })];
   return () => {
     offs.forEach((off) => off());
     document.removeEventListener('keydown', onKey);

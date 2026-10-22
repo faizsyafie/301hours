@@ -6,26 +6,67 @@ import { notice, ask } from './dialog.js';
 import { resetProgress } from './reset.js';
 import { showSignIn, signOut, deleteCloudData } from './account.js';
 import { isInstalled, isIOS, canPrompt, promptInstall, onInstallChange } from './install.js';
+import { skinPicker, setSkin } from './skin.js';
 
-const FIELDS = [
-  ['goalHours', 'TARGET HOURS (PER LEVEL)', 'number', { min: 1, max: 2000 }],
-  ['dailyGoalHours', 'DAILY TARGET (HOURS)', 'number', { min: 0, max: 16, step: 0.5 }],
-  ['examDate', 'EXAM DATE', 'date', {}],
-  ['studyMin', 'STUDY BLOCK (MIN)', 'number', { min: 1, max: 180 }],
-  ['shortMin', 'SHORT BREAK (MIN)', 'number', { min: 1, max: 60 }],
-  ['longMin', 'LONG BREAK (MIN)', 'number', { min: 1, max: 120 }],
-  ['longEvery', 'LONG BREAK EVERY N BLOCKS', 'number', { min: 1, max: 12 }],
-  ['graceSec', 'SECONDS AWAY BEFORE HALT', 'number', { min: 1, max: 120 }],
-  ['scoreTarget', 'PRACTICE SCORE TARGET (%)', 'number', { min: 1, max: 100 }],
-];
+// Number/date fields: [key, label, type, attrs]
+const FIELD = {
+  goalHours: ['TARGET HOURS', 'number', { min: 1, max: 2000 }],
+  dailyGoalHours: ['DAILY TARGET (H)', 'number', { min: 0, max: 16, step: 0.5 }],
+  examDate: ['EXAM DATE', 'date', {}],
+  scoreTarget: ['SCORE TARGET (%)', 'number', { min: 1, max: 100 }],
+  studyMin: ['STUDY (MIN)', 'number', { min: 1, max: 180 }],
+  shortMin: ['BREAK (MIN)', 'number', { min: 1, max: 60 }],
+  longMin: ['LONG BREAK (MIN)', 'number', { min: 1, max: 120 }],
+  longEvery: ['LONG BREAK EVERY', 'number', { min: 1, max: 12 }],
+  graceSec: ['HALT AFTER (S AWAY)', 'number', { min: 1, max: 120 }],
+};
 
-const TOGGLES = [
-  ['presence', 'Only count study time while I\'m at the desk (camera)'],
-  ['autoStartBreak', 'Start breaks automatically'],
-  ['autoStartStudy', 'Start study blocks automatically after breaks'],
-  ['alerts', 'Show alerts when blocks and breaks start or end'],
-  ['sound', 'Play a sound when a block or break ends'],
-];
+// On/off switches: [key, title, hint]
+const SWITCH = {
+  autoStartBreak: ['Auto-start breaks', 'Breaks begin as soon as a block ends'],
+  autoStartStudy: ['Auto-start study blocks', 'The next block begins when a break ends'],
+  presence: ['Presence check', 'The clock only runs while you\'re in frame'],
+  phoneCheck: ['Phone check', 'A phone in frame halts the clock'],
+  alerts: ['Alerts', 'Pop-ups when blocks and breaks start or end'],
+  sound: ['Sounds', 'Bell, cash register and warnings'],
+  wakeLock: ['Keep screen awake', 'While the timer runs'],
+  gateStrict: ['Strict gate', 'Cards must be answered right; misses come back'],
+  wrapUp: ['End-of-block wrap-up', 'A quick check-in after each block'],
+};
+
+const WRAP_QS = [['wrapFocus', 'FOCUS 1–5'], ['wrapNotes', 'WHAT I COVERED'], ['wrapModule', 'MODULE'], ['wrapQuestions', 'QUESTIONS']];
+const PRESETS = [[25, 5, 15], [50, 10, 20], [90, 15, 30]];
+
+const WEEK = [[1, 'MON'], [2, 'TUE'], [3, 'WED'], [4, 'THU'], [5, 'FRI'], [6, 'SAT'], [0, 'SUN']];
+
+// Rest days: weekday chips, a today button, and upcoming specific dates.
+function restHTML(s) {
+  const today = dayKey(Date.now());
+  const dates = (s.restDates || []).filter((d) => d >= today).sort();
+  const todayRest = (s.restDates || []).includes(today);
+  return `
+    <div class="sw-text"><b>Rest days</b><span class="muted small">Planned days off never break your streak or lower your credit rating.</span></div>
+    <div class="wrap-qs">${WEEK.map(([n, label]) => `<label class="chip"><input type="checkbox" name="rw-${n}" ${(s.restWeekdays || []).includes(n) ? 'checked' : ''}><span>${label}</span></label>`).join('')}</div>
+    <div class="row rest-dates">
+      <button type="button" class="btn small ${todayRest ? 'primary' : ''}" data-rest="today">☾ ${todayRest ? 'TODAY IS A REST DAY ✓' : 'MAKE TODAY A REST DAY'}</button>
+      <input type="date" name="restAdd" min="${today}" aria-label="Add a rest date">
+      <button type="button" class="btn small" data-rest="add">+ ADD DATE</button>
+      ${dates.filter((d) => d !== today).map((d) => `<span class="chip-x">${new Date(d + 'T00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' }).toUpperCase()} <button type="button" class="icon" data-rest-del="${d}" title="Remove">✕</button></span>`).join('')}
+    </div>`;
+}
+
+function field(s, k) {
+  const [label, type, attrs] = FIELD[k];
+  return `<label>${label}<input name="${k}" type="${type}" value="${esc(s[k] ?? '')}" ${Object.entries(attrs).map(([a, v]) => `${a}="${v}"`).join(' ')}></label>`;
+}
+
+const OFF_BY_DEFAULT = new Set(['gateStrict']);
+const isOn = (s, k) => (OFF_BY_DEFAULT.has(k) ? s[k] === true : s[k] !== false);
+
+function sw(s, k) {
+  const [title, hint] = SWITCH[k];
+  return `<label class="sw"><span class="sw-text"><b>${title}</b><span class="muted small">${hint}</span></span><input type="checkbox" name="${k}" ${isOn(s, k) ? 'checked' : ''}><span class="sw-ui" aria-hidden="true"></span></label>`;
+}
 
 const SYNC_TEXT = {
   synced: 'Synced. Your data is saved to your Vercel database and shows up on every device.',
@@ -39,20 +80,51 @@ const SYNC_TEXT = {
 export function renderSettings(root) {
   const s = store.doc.settings;
   root.innerHTML = `
-    <div class="page-head"><h1>SETUP</h1></div>
+    <div class="page-head"><h1>SETUP</h1><span class="saved-flash up small" hidden>✓ SAVED</span></div>
     <div class="grid-2">
-      <section class="panel">
-        <div class="phead"><span>TARGETS &amp; TIMER</span></div>
-        <form class="settings-form">
+      <div class="settings-form">
+        <section class="panel">
+          <div class="phead"><span>GOALS</span></div>
           <div class="fields">
             <label>LEVEL<select name="level">${[1, 2, 3].map((l) => `<option value="${l}" ${l === (s.level || 1) ? 'selected' : ''}>CFA LEVEL ${'I'.repeat(l)}</option>`).join('')}</select></label>
-            <label>L3 PATHWAY<select name="pathway">${Object.entries(PATHWAYS).map(([k, v]) => `<option value="${k}" ${k === s.pathway ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-            ${FIELDS.map(([k, label, type, attrs]) => `<label>${label}<input name="${k}" type="${type}" value="${esc(s[k])}" ${Object.entries(attrs).map(([a, v]) => `${a}="${v}"`).join(' ')}></label>`).join('')}
+            ${(s.level || 1) === 3 ? `<label>PATHWAY<select name="pathway">${Object.entries(PATHWAYS).map(([k, v]) => `<option value="${k}" ${k === s.pathway ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
+            ${field(s, 'examDate')}
+            ${field(s, 'goalHours')}
+            ${field(s, 'dailyGoalHours')}
+            ${field(s, 'scoreTarget')}
           </div>
-          ${TOGGLES.map(([k, label]) => `<label class="check"><input type="checkbox" name="${k}" ${s[k] ? 'checked' : ''}> ${label}</label>`).join('')}
-          <div class="row"><button class="btn primary" type="submit">SAVE</button><span class="note saved" hidden>Saved.</span></div>
-        </form>
-      </section>
+          <div class="rest">${restHTML(s)}</div>
+        </section>
+
+        <section class="panel">
+          <div class="phead"><span>TIMER</span></div>
+          <div class="presets">${PRESETS.map(([a, b, c]) => `<button type="button" class="btn small" data-preset="${a},${b},${c}">${a}/${b}</button>`).join('')}<span class="muted small">one tap: study / break minutes</span></div>
+          <div class="fields fields-4">
+            ${field(s, 'studyMin')}${field(s, 'shortMin')}${field(s, 'longMin')}${field(s, 'longEvery')}
+          </div>
+          ${sw(s, 'autoStartBreak')}${sw(s, 'autoStartStudy')}
+        </section>
+
+        <section class="panel">
+          <div class="phead"><span>DESK CAM</span></div>
+          ${sw(s, 'presence')}
+          <div class="sw-sub fields">${field(s, 'graceSec')}</div>
+          ${sw(s, 'phoneCheck')}
+        </section>
+
+        <section class="panel">
+          <div class="phead"><span>ALERTS &amp; EXTRAS</span></div>
+          ${sw(s, 'alerts')}${sw(s, 'sound')}${sw(s, 'wakeLock')}
+          <div class="sw sw-select"><span class="sw-text"><b>Flashcards</b><span class="muted small">Off, shown during breaks, or a gate you clear to start the break</span></span>
+            <select name="cardMode">${[['off', 'OFF'], ['break', 'DURING BREAKS'], ['gate', 'GATE THE BREAK']].map(([v, l]) => `<option value="${v}" ${v === (s.cardMode || (s.breakCards === false ? 'off' : 'break')) ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+          <div class="sw-sub gate-opts">
+            <div class="wrap-qs"><span class="muted small">CARDS TO UNLOCK:</span>${[1, 2, 3, 4, 5].map((n) => `<label class="chip"><input type="radio" name="gateCount" value="${n}" ${n === (s.gateCount || 2) ? 'checked' : ''}><span>${n}</span></label>`).join('')}</div>
+            ${sw(s, 'gateStrict')}
+          </div>
+          ${sw(s, 'wrapUp')}
+          <div class="sw-sub wrap-qs wrapup-qs"><span class="muted small">ASKS:</span>${WRAP_QS.map(([k, label]) => `<label class="chip"><input type="checkbox" name="${k}" ${s[k] !== false ? 'checked' : ''}><span>${label}</span></label>`).join('')}</div>
+        </section>
+      </div>
 
       <div>
         <section class="panel">
@@ -68,7 +140,8 @@ export function renderSettings(root) {
           <ul class="diag" hidden></ul>
         </section>
         <section class="panel">
-          <div class="phead"><span>APP</span></div>
+          <div class="phead"><span>APP</span><span class="muted">THEME IS SAVED ON THIS DEVICE</span></div>
+          ${skinPicker()}
           <p class="note install-text"></p>
           <div class="row"><button type="button" class="btn" data-act="install" hidden>INSTALL APP</button></div>
         </section>
@@ -113,27 +186,102 @@ export function renderSettings(root) {
   });
   showSync();
 
-  $('.settings-form', root).addEventListener('submit', (e) => {
-    e.preventDefault();
-    const f = e.target;
-    const s = store.doc.settings; // re-read: a sync may have replaced it since render
-    for (const [k, , type] of FIELDS) {
-      const v = f[k].value;
-      if (type === 'number') {
-        const n = Number(v);
-        if (Number.isFinite(n) && n >= 0) s[k] = n;
-      } else {
-        s[k] = v;
-      }
+  // Changes save as you make them.
+  const form = $('.settings-form', root);
+  const syncSubs = () => {
+    const st = store.doc.settings;
+    $('.wrapup-qs', root).hidden = st.wrapUp === false;
+    $('.gate-opts', root).hidden = (st.cardMode || (st.breakCards === false ? 'off' : 'break')) !== 'gate';
+    $('[name="graceSec"]', root).closest('.sw-sub').hidden = st.presence === false;
+    const cur = `${st.studyMin},${st.shortMin}`;
+    root.querySelectorAll('[data-preset]').forEach((b) => b.classList.toggle('primary', b.dataset.preset.startsWith(cur + ',')));
+  };
+  const flash = () => {
+    const el = $('.saved-flash', root);
+    el.hidden = false;
+    clearTimeout(flash.t);
+    flash.t = setTimeout(() => { el.hidden = true; }, 1600);
+  };
+  const redrawRest = () => { $('.rest', root).innerHTML = restHTML(store.doc.settings); };
+  const setRest = (fn) => {
+    const st = store.doc.settings;
+    fn(st);
+    st.u = Date.now();
+    save();
+    redrawRest();
+    flash();
+  };
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rest], [data-rest-del]');
+    if (!btn) return;
+    const today = dayKey(Date.now());
+    if (btn.dataset.restDel) return setRest((st) => { st.restDates = (st.restDates || []).filter((d) => d !== btn.dataset.restDel); });
+    if (btn.dataset.rest === 'today') {
+      return setRest((st) => {
+        const list = st.restDates || [];
+        st.restDates = list.includes(today) ? list.filter((d) => d !== today) : [...list, today];
+      });
     }
-    for (const [k] of TOGGLES) s[k] = f[k].checked;
-    s.level = Number(f.level.value) || 1;
-    s.pathway = f.pathway.value;
-    s.u = Date.now();
-    save({ immediate: true });
-    $('.saved', f).hidden = false;
-    setTimeout(() => { $('.saved', f).hidden = true; }, 2500);
+    const v = $('[name="restAdd"]', root).value;
+    if (v) setRest((st) => { st.restDates = [...new Set([...(st.restDates || []), v])]; });
   });
+
+  form.addEventListener('change', (e) => {
+    const el = e.target;
+    const k = el.name;
+    const st = store.doc.settings; // re-read: a sync may have replaced it since render
+    if (k === 'restAdd') return;
+    if (k.startsWith('rw-')) {
+      const n = Number(k.slice(3));
+      const set = new Set(st.restWeekdays || []);
+      if (el.checked) set.add(n); else set.delete(n);
+      st.restWeekdays = [...set];
+      st.u = Date.now();
+      save();
+      flash();
+      return;
+    }
+    if (el.type === 'checkbox') st[k] = el.checked;
+    else if (el.type === 'radio') st[k] = Number(el.value);
+    else if (el.type === 'number') {
+      const [, , attrs] = FIELD[k];
+      const n = Number(el.value);
+      if (!Number.isFinite(n) || el.value === '') { el.value = st[k]; return; }
+      st[k] = Math.min(attrs.max ?? Infinity, Math.max(attrs.min ?? 0, n));
+      el.value = st[k];
+    } else if (k === 'level') st.level = Number(el.value) || 1;
+    else st[k] = el.value;
+    st.u = Date.now();
+    save();
+    syncSubs();
+    flash();
+  });
+  root.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
+    const [study, brk, long] = b.dataset.preset.split(',').map(Number);
+    const st = store.doc.settings;
+    Object.assign(st, { studyMin: study, shortMin: brk, longMin: long, u: Date.now() });
+    for (const [k, v] of [['studyMin', study], ['shortMin', brk], ['longMin', long]]) $(`[name="${k}"]`, root).value = v;
+    save();
+    syncSubs();
+    flash();
+  }));
+  syncSubs();
+
+  // Synced data can arrive after the page is drawn: refresh the values shown,
+  // except the field you're typing in.
+  const refreshValues = () => {
+    const st = store.doc.settings;
+    form.querySelectorAll('input[name], select[name]').forEach((el) => {
+      if (el === document.activeElement || !(el.name in st)) return;
+      if (el.type === 'checkbox') el.checked = el.closest('.chip') ? st[el.name] !== false : isOn(st, el.name);
+      else if (el.type === 'radio') el.checked = Number(el.value) === (st[el.name] || 2);
+      else el.value = st[el.name] ?? '';
+    });
+    form.querySelectorAll('input[name^="rw-"]').forEach((el) => { el.checked = (st.restWeekdays || []).includes(Number(el.name.slice(3))); });
+    if (!$('.rest', root).contains(document.activeElement)) redrawRest();
+    syncSubs();
+  };
+  const offValues = subscribe(refreshValues);
 
   $('.pass-form', root).addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -201,9 +349,13 @@ export function renderSettings(root) {
   };
   showInstall();
   $('[data-act="install"]', root).addEventListener('click', promptInstall);
+  root.querySelectorAll('[data-skin]').forEach((b) => b.addEventListener('click', () => {
+    setSkin(b.dataset.skin);
+    root.querySelectorAll('[data-skin]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  }));
   const offInstall = onInstallChange(showInstall);
   const offSync = subscribe(showSync);
-  return () => { offInstall(); offSync(); };
+  return () => { offInstall(); offSync(); offValues(); };
 }
 
 // Checks each link in the sync chain and says how to fix the first broken one.

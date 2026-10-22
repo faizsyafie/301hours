@@ -33,11 +33,23 @@ export function levelSessions(level = currentLevel()) {
   return store.doc.sessions.filter((s) => !s.deleted && s.sec > 0 && sessionLevel(s) === level);
 }
 
+// Rest days: chosen weekdays (0 = Sunday) and specific dates. A rest day you
+// don't study on never breaks the streak or counts against the credit rating.
+export function isRestDay(ts) {
+  const s = store.doc.settings;
+  return (s.restWeekdays || []).includes(new Date(ts).getDay()) || (s.restDates || []).includes(dayKey(ts));
+}
+
 export function examCountdown() {
   const { examDate } = store.doc.settings;
   if (!examDate) return null;
   const date = new Date(examDate + 'T00:00').getTime();
-  return { date, days: Math.ceil((date - startOfDay(Date.now())) / DAY) };
+  const today = startOfDay(Date.now());
+  const days = Math.ceil((date - today) / DAY);
+  // Days left that you'll actually study (today included, rest days not).
+  let studyDays = 0;
+  for (let i = 0; i < days && i < 3650; i++) if (!isRestDay(today + i * DAY)) studyDays++;
+  return { date, days, studyDays };
 }
 
 export function stats(level = currentLevel()) {
@@ -62,8 +74,12 @@ export function stats(level = currentLevel()) {
     else if (s.start >= now - 14 * DAY) byTopicPrevWeek.set(s.topicId, (byTopicPrevWeek.get(s.topicId) || 0) + s.sec);
   }
 
+  // Consecutive study days, stepping over rest days you didn't study on.
   let streak = 0;
-  for (let d = byDay.has(dayKey(today)) ? today : today - DAY; byDay.get(dayKey(d)) > 0; d -= DAY) streak++;
+  for (let d = byDay.has(dayKey(today)) ? today : today - DAY, n = 0; n < 3650; d -= DAY, n++) {
+    if (byDay.get(dayKey(d)) > 0) streak++;
+    else if (!isRestDay(d)) break;
+  }
 
   const topics = levelTopics(level).map((t) => {
     const items = t.items.filter((i) => !i.deleted);

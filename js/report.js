@@ -1,7 +1,7 @@
 // Weekly 10-K: a one-page filing for a Monday–Sunday week, viewable in the app
 // and savable as an image.
 import { store } from './store.js';
-import { stats, levelScores, accuracy, currentLevel, levelTopics, tickerOf, DAY } from './model.js';
+import { stats, levelScores, accuracy, currentLevel, levelTopics, tickerOf, isRestDay, DAY } from './model.js';
 import { creditRating } from './ratings.js';
 import { reviewsBetween } from './reviews.js';
 import { panel } from './dialog.js';
@@ -46,13 +46,19 @@ export function weekReport(offset = 0) {
   const reports = levelScores(level).filter((r) => r.date >= from && r.date < to);
   const acc = accuracy(reports);
   const goal = (store.doc.settings.dailyGoalHours || 0) * 3600;
+  const rated = sessions.filter((x) => x.focus);
+  const focusAvg = rated.length ? rated.reduce((a, x) => a + x.focus, 0) / rated.length : null;
+  const gatesSkipped = sessions.filter((x) => x.gateSkipped).length;
+  const gateCards = sessions.reduce((a, x) => a + (x.gateCards || 0), 0);
   return {
     level, from, to, sec, prevSec, verified, days, best, topRows, modules,
     reviews: reviewsBetween(from, to),
     questions: acc.total, accuracy: acc.pct,
     studied: days.filter((d) => d.sec > 0).length,
+    restDays: days.filter((d) => !d.sec && isRestDay(d.ts)).length,
     targetHits: goal ? days.filter((d) => d.sec >= goal).length : null,
     rating: creditRating(st, store.doc.settings.dailyGoalHours),
+    focusAvg, gatesSkipped, gateCards,
     partial: offset === 0,
   };
 }
@@ -76,7 +82,7 @@ function html(r) {
       <div class="tenk-hero"><span class="tenk-h">${(r.sec / 3600).toFixed(2)}</span><span class="muted">HRS BANKED</span><span class="${r.sec >= r.prevSec ? 'up' : 'down'}">${change(r)} vs prior week</span></div>
       <div class="tenk-days">${bars}</div>
       <div class="kv-grid">
-        ${kv('DAYS STUDIED', `${r.studied}/7`)}
+        ${kv('DAYS STUDIED', `${r.studied}/${7 - r.restDays}${r.restDays ? ` <span class="muted small">+${r.restDays} rest</span>` : ''}`)}
         ${kv('TARGET HIT', r.targetHits === null ? '—' : `${r.targetHits}/7`)}
         ${kv('BEST DAY', r.best.sec ? `${new Date(r.best.ts).toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()} ${duration(r.best.sec)}` : '—')}
         ${kv('CAM-VERIFIED', r.sec ? `${Math.round((r.verified / r.sec) * 100)}%` : '—')}
@@ -85,6 +91,8 @@ function html(r) {
         ${kv('QUESTIONS', r.questions || '—')}
         ${kv('ACCURACY', r.accuracy === null ? '—' : `${r.accuracy.toFixed(1)}%`, r.accuracy === null ? '' : r.accuracy >= (store.doc.settings.scoreTarget || 70) ? 'up' : 'down')}
         ${kv('CREDIT RATING', r.rating.grade + (r.rating.outlook ? ` · ${r.rating.outlook}` : ''))}
+        ${kv('AVG FOCUS', r.focusAvg === null ? '—' : `${r.focusAvg.toFixed(1)}/5`)}
+        ${r.gateCards || r.gatesSkipped ? kv('GATE CARDS', `${r.gateCards}${r.gatesSkipped ? ` <span class="down small">· ${r.gatesSkipped} skipped</span>` : ''}`) : ''}
       </div>
       <div class="tenk-seg"><span class="k">SEGMENTS · TOP TOPICS</span>${r.topRows.length ? r.topRows.map((t) => `<div><b class="tk">${esc(t.ticker)}</b> ${esc(t.name)} <span class="num">${duration(t.sec)}</span></div>`).join('') : '<div class="muted">No study logged this week.</div>'}</div>
       <div class="row end"><button type="button" class="btn" data-save>SAVE AS IMAGE ↓</button></div>

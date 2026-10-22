@@ -4,8 +4,9 @@ import { stats, currentLevel, tickerOf } from './model.js';
 import { PATHWAYS } from './curriculum.js';
 import { analystRatings } from './ratings.js';
 import { revOf, onDoneChange, STAGE_LABEL, act as reviewAct } from './reviews.js';
+import { cardsFor, openCardManager } from './cards.js';
 import { esc, uid, hours, shortDate } from './util.js';
-import { ask, confirmBox } from './dialog.js';
+import { ask, confirmBox, panel } from './dialog.js';
 
 const OPEN_KEY = '301hours:openTopics';
 const ROMAN = { 1: 'I', 2: 'II', 3: 'III' };
@@ -24,6 +25,20 @@ function findTopic(id) {
 
 function touch(obj) {
   obj.u = Date.now();
+}
+
+// Wrap-up notes saved on study sessions, newest first.
+function notesFor(topicId, itemId) {
+  return store.doc.sessions
+    .filter((s) => !s.deleted && s.topicId === topicId && (itemId === undefined || s.itemId === itemId) && (s.note || s.focus))
+    .sort((a, b) => b.start - a.start);
+}
+
+function showNotes(title, list) {
+  const items = store.doc.topics.flatMap((t) => t.items);
+  panel(title, `<ul class="notes-list">${list.map((s) => `
+    <li><div class="muted small">${shortDate(s.start).toUpperCase()} · ${Math.round(s.sec / 60)} MIN${s.focus ? ` · FOCUS ${'●'.repeat(s.focus)}${'○'.repeat(5 - s.focus)}` : ''}${s.itemId && title.startsWith('NOTES ·') ? ` · ${esc(items.find((i) => i.id === s.itemId)?.name || '')}` : ''}</div>
+    <div>${esc(s.note || '—')}</div></li>`).join('')}</ul>`);
 }
 
 function revBadge(topic, item) {
@@ -77,6 +92,7 @@ export function renderTopics(root, params) {
                   <label class="check"><input type="checkbox" ${i.done ? 'checked' : ''}><span class="idx">${String(idx + 1).padStart(2, '0')}</span><span>${esc(i.name)}</span></label>
                   <span class="muted small">${i.done && i.doneAt ? `CLOSED ${shortDate(i.doneAt).toUpperCase()}` : ''}</span>
                   ${revBadge(topic, i)}
+                  ${notesFor(topic.id, i.id).length ? `<button type="button" class="rev" data-act="notes-item" title="Your wrap-up notes for this module">✎ ${notesFor(topic.id, i.id).length}</button>` : ''}
                   <span class="actions">
                     <button type="button" class="icon" data-act="study-item" title="Study this module">▶</button>
                     <button type="button" class="icon" data-act="rename-item" title="Rename">✎</button>
@@ -90,6 +106,8 @@ export function renderTopics(root, params) {
             </form>
             <div class="topic-actions row">
               <button type="button" class="btn small" data-act="study-topic">▶ STUDY THIS</button>
+              ${notesFor(topic.id).length ? `<button type="button" class="btn small" data-act="notes-topic">✎ NOTES (${notesFor(topic.id).length})</button>` : ''}
+              <button type="button" class="btn small" data-act="cards-topic">▤ FLASHCARDS (${cardsFor(topic.id).length})</button>
               <button type="button" class="btn small" data-act="rename-topic">RENAME</button>
               <button type="button" class="btn small" data-act="ticker-topic">TICKER</button>
               <button type="button" class="btn small" data-act="weight-topic">WEIGHT</button>
@@ -192,6 +210,9 @@ export function renderTopics(root, params) {
     const li = btn.closest('li[data-item]');
     const item = li && topic.items.find((i) => i.id === li.dataset.item);
 
+    if (act === 'cards-topic') return openCardManager(topic, ask);
+    if (act === 'notes-item') return showNotes(`NOTES · ${item.name.toUpperCase()}`.slice(0, 60), notesFor(topic.id, item.id));
+    if (act === 'notes-topic') return showNotes(`NOTES · ${topic.name.toUpperCase()}`, notesFor(topic.id));
     if (act === 'study-item' || act === 'study-topic') {
       setTopic(topic.id, item ? item.id : '');
       location.hash = '#/study';
