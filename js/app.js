@@ -109,16 +109,23 @@ function updateTape() {
 }
 
 // ---------- Milestones ----------
+// Milestones depend on the goal, so changing it can create ones you're
+// already past. Those are marked as seen without a banner.
+let msGoal = null;
 function checkMilestones() {
   const s = store.doc.settings;
   const level = currentLevel();
+  const goal = Math.round(s.goalHours);
+  const goalChanged = msGoal !== null && msGoal !== `${level}:${goal}`;
+  msGoal = `${level}:${goal}`;
   const totalH = stats(level).total / 3600;
   const seen = new Set(s.celebrated || []);
-  const fresh = milestonesFor(Math.round(s.goalHours)).filter(([h]) => totalH >= h && !seen.has(`${level}:${h}`));
+  const fresh = milestonesFor(goal).filter(([h]) => totalH >= h && !seen.has(`${level}:${h}`));
   if (!fresh.length) return;
   s.celebrated = [...seen, ...fresh.map(([h]) => `${level}:${h}`)];
   s.u = Date.now();
   save();
+  if (goalChanged) return;
   const [h, headline] = fresh[fresh.length - 1];
   breaking(h, headline);
 }

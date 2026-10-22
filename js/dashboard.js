@@ -23,10 +23,33 @@ function arrow(delta) {
   return `<span class="flat">■ 0.00</span>`;
 }
 
-// Milestones that apply to the current goal, plus the goal itself.
+// Milestones for the current goal. The classic 301 list stays as it is; any
+// other goal gets a few early ones plus round steps spread up to the goal.
+const STEPS = [10, 20, 25, 50, 100, 200, 250, 500];
+const FLAVOUR = [
+  'ANALYSTS RAISE PRICE TARGET.',
+  'SHORT SELLERS CAPITULATE.',
+  'MOMENTUM TRADERS PILE IN.',
+  'INSTITUTIONS ADD TO POSITION.',
+  'VOLUME SURGES ON STRONG FUNDAMENTALS.',
+];
 export function milestonesFor(goal) {
-  const list = MILESTONES.filter(([h]) => h <= goal);
-  if (!list.some(([h]) => h === goal)) list.push([goal, `${goal} HOURS. TARGET HIT. ALL-TIME HIGH.`]);
+  if (goal === 301) return MILESTONES.slice();
+  const ideal = goal / 6;
+  const step = STEPS.reduce((a, b) => (Math.abs(Math.log(b / ideal)) < Math.abs(Math.log(a / ideal)) ? b : a));
+  const list = MILESTONES.filter(([h]) => [10, 25, 50, 100].includes(h) && h < goal * 0.15 && h < step);
+  const early = list.length ? list[list.length - 1][0] : 0;
+  let i = 0;
+  for (let h = step; h < goal; h += step) {
+    if (h <= early || goal - h < step * 0.3) continue;
+    const pct = h / goal;
+    const line = h === 300 ? 'CFA INSTITUTE RECOMMENDATION MET.'
+      : pct >= 0.47 && pct <= 0.53 ? 'HALFWAY THERE. MARKETS RALLY ON STRONG FUNDAMENTALS.'
+      : pct >= 0.85 ? 'FINAL STRETCH FULLY PRICED IN.'
+      : FLAVOUR[i++ % FLAVOUR.length];
+    list.push([h, `${h} HOURS. ${Math.round(pct * 100)}% OF TARGET. ${line}`]);
+  }
+  list.push([goal, `${goal} HOURS. TARGET HIT. ALL-TIME HIGH.`]);
   return list;
 }
 
