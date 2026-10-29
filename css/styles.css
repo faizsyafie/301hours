@@ -197,6 +197,7 @@ label.inline { flex-direction: row; align-items: center; gap: 8px; }
 .ms-track { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .ms-chip { font-size: 0.75rem; padding: 2px 8px; border: 1px solid var(--line-2); color: var(--muted); }
 .ms-chip.hit { border-color: var(--green); color: var(--green); }
+.over-tag { margin-left: 8px; padding: 1px 6px; border: 1px solid var(--green); color: var(--green); font-size: 0.75rem; white-space: nowrap; }
 .grid-tip { margin-top: 8px; min-height: 1.2em; }
 
 /* ---------- Chart ---------- */
