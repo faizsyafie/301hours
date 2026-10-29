@@ -143,7 +143,7 @@ function grid(st) {
 
   return `
     <section class="panel">
-      <div class="phead"><span>HOUR GRID · ${Math.floor(totalH)} / ${goal}</span><span class="muted">${next ? `NEXT MILESTONE ${next[0]}H IN ${(next[0] - totalH).toFixed(2)}H` : 'ALL MILESTONES HIT'}</span></div>
+      <div class="phead"><span>HOUR GRID · ${Math.floor(totalH)} / ${goal}${totalH - goal >= 0.1 ? ` <span class="over-tag" title="Hours beyond your target">+${(totalH - goal).toFixed(1)}H OVER TARGET</span>` : ''}</span><span class="muted">${next ? `NEXT MILESTONE ${next[0]}H IN ${(next[0] - totalH).toFixed(2)}H` : 'ALL MILESTONES HIT'}</span></div>
       <div class="grid301" aria-label="${Math.floor(totalH)} of ${goal} hours completed">${cells}</div>
       <div class="ms-track">${track}</div>
       <div class="grid-tip muted small">&nbsp;</div>
